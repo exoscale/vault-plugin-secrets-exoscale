@@ -1,0 +1,33 @@
+builds:
+- binary: vault-plugin-secrets-exoscale
+  main: ./cmd/vault-plugin-secrets-exoscale
+  env:
+  - CGO_ENABLED=0
+  - GO_PKG=github.com/exoscale/vault-plugin-secrets-exoscale
+  flags:
+    - -mod=vendor
+  ldflags:
+    - -s -w -X {{.Env.GO_PKG}}/version.Version={{.Version}} -X {{.Env.GO_PKG}}/version.Commit={{.FullCommit}}
+  goos:
+    - darwin
+    - linux
+    - openbsd
+  goarch:
+    - amd64
+
+signs:
+- cmd: gpg
+  args: ["-u", "ops@exoscale.ch", "--detach-sign", "${artifact}"]
+  artifacts: all
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ .Tag }}-snapshot"
+
+release:
+  draft: true
+  github:
+    owner: exoscale
+    name: vault-plugin-secrets-exoscale
