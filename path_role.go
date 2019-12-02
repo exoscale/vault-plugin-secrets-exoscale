@@ -49,11 +49,11 @@ func pathRole(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: "role/" + framework.GenericNameRegex("name"),
 		Fields: map[string]*framework.FieldSchema{
-			"name": &framework.FieldSchema{
+			"name": {
 				Type:        framework.TypeString,
 				Description: "Name of the role",
 			},
-			"operations": &framework.FieldSchema{
+			"operations": {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Comma-separated list of API operations to restrict API keys to",
 			},

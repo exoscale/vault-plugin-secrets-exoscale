@@ -36,15 +36,15 @@ func pathConfigRoot(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: "config/root",
 		Fields: map[string]*framework.FieldSchema{
-			"api_endpoint": &framework.FieldSchema{
+			"api_endpoint": {
 				Type:        framework.TypeString,
 				Description: "Exoscale API endpoint",
 			},
-			"root_api_key": &framework.FieldSchema{
+			"root_api_key": {
 				Type:        framework.TypeString,
 				Description: "Exoscale API key",
 			},
-			"root_api_secret": &framework.FieldSchema{
+			"root_api_secret": {
 				Type:        framework.TypeString,
 				Description: "Exoscale API secret",
 			},

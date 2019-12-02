@@ -15,15 +15,15 @@ func secretAPIKey(b *exoscaleBackend) *framework.Secret {
 	return &framework.Secret{
 		Type: SecretTypeAPIKey,
 		Fields: map[string]*framework.FieldSchema{
-			"name": &framework.FieldSchema{
+			"name": {
 				Type:        framework.TypeString,
 				Description: "API key name",
 			},
-			"api_key": &framework.FieldSchema{
+			"api_key": {
 				Type:        framework.TypeString,
 				Description: "API key",
 			},
-			"api_secret": &framework.FieldSchema{
+			"api_secret": {
 				Type:        framework.TypeString,
 				Description: "API secret",
 			},

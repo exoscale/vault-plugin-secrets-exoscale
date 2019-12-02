@@ -2,11 +2,11 @@ package exoscale
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/pkg/errors"
 )
 
 const configLeaseStoragePath = "config/lease"
@@ -25,11 +25,11 @@ func pathConfigLease(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: "config/lease",
 		Fields: map[string]*framework.FieldSchema{
-			"ttl": &framework.FieldSchema{
+			"ttl": {
 				Type:        framework.TypeDurationSecond,
 				Description: "Duration of issued API key secrets",
 			},
-			"max_ttl": &framework.FieldSchema{
+			"max_ttl": {
 				Type:        framework.TypeDurationSecond,
 				Description: `Duration after which the issued API key secrets are not allowed to be renewed`,
 			},

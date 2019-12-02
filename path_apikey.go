@@ -28,7 +28,7 @@ func pathAPIKey(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: apiKeyPathPrefix + framework.GenericNameRegex("role"),
 		Fields: map[string]*framework.FieldSchema{
-			"role": &framework.FieldSchema{
+			"role": {
 				Type:        framework.TypeString,
 				Description: "Name of the role to apply to the API key",
 			},

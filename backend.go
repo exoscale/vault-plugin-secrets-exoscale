@@ -27,7 +27,7 @@ func init() {
 }
 
 func Factory(ctx context.Context, config *logical.BackendConfig) (logical.Backend, error) {
-	backend := Backend()
+	backend := backend()
 	if err := backend.Setup(ctx, config); err != nil {
 		return nil, errors.Wrap(err, "failed to create factory")
 	}
@@ -58,7 +58,7 @@ func (b *exoscaleBackend) config(ctx context.Context, storage logical.Storage) (
 	return &config, nil
 }
 
-func Backend() *exoscaleBackend {
+func backend() *exoscaleBackend {
 	var b exoscaleBackend
 
 	b.Backend = &framework.Backend{
