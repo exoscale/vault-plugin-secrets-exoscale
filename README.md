@@ -1,5 +1,7 @@
 # Vault Plugin: Exoscale Secrets Backend
 
+[![Actions Status](https://github.com/exoscale/vault-plugin-secrets-exoscale/workflows/CI/badge.svg)](https://github.com/exoscale/vault-plugin-secrets-exoscale/actions?query=workflow%3ACI)
+
 This is a [backend plugin][vaultdocplugins] plugin to be used with HashiCorp [Vault](https://www.vaultproject.io/). This plugin generates Exoscale IAM API keys which can be restricted to specific operations according to predefined roles.
 
 This guide assumes you have already installed Vault and have a basic understanding of how Vault works. Otherwise, first read this guide on how to [get started with Vault][vaultdocintro].
