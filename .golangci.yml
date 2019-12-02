@@ -1,0 +1,9 @@
+linters-settings:
+  golint:
+    min-confidence: 0.3
+
+linters:
+  presets:
+  - bugs
+  - complexity
+  - format
