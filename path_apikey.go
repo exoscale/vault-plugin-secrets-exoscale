@@ -66,6 +66,11 @@ func (b *exoscaleBackend) createAPIKey(ctx context.Context, req *logical.Request
 		lc = new(leaseConfig)
 	}
 
+	// Role-level lease configuration overrides the backend-level configuration
+	if role.LeaseConfig != nil {
+		lc = role.LeaseConfig
+	}
+
 	apiRes, err := b.exo.RequestWithContext(ctx, &egoscale.CreateAPIKey{
 		Name:       fmt.Sprintf("vault-%s-%s-%d", roleName, req.DisplayName, time.Now().UnixNano()),
 		Operations: strings.Join(role.Operations, ","),

@@ -48,6 +48,8 @@ func (t *backendTestSuite) TestPathRoleWrite() {
 		Data: map[string]interface{}{
 			"name":       testRoleName,
 			"operations": testRoleOperations,
+			"ttl":        testConfigLeaseTTL,
+			"max_ttl":    testConfigLeaseMaxTTL,
 		},
 	})
 	if err != nil {
@@ -62,7 +64,13 @@ func (t *backendTestSuite) TestPathRoleWrite() {
 		t.FailNow("unable to JSON-decode entry", err)
 	}
 
-	require.Equal(t.T(), roleConfig{Operations: testRoleOperations}, actualRoleConfig)
+	require.Equal(t.T(), roleConfig{
+		Operations: testRoleOperations,
+		LeaseConfig: &leaseConfig{
+			TTL:    testConfigLeaseTTL,
+			MaxTTL: testConfigLeaseMaxTTL,
+		},
+	}, actualRoleConfig)
 }
 
 func (t *backendTestSuite) TestPathRoleRead() {
