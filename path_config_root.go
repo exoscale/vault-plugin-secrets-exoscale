@@ -12,7 +12,7 @@ import (
 const (
 	configRootStoragePath = "config/root"
 
-	defaultAPIEndpoint = "https://api.exoscale.com/compute"
+	defaultAPIEndpoint = "https://api.exoscale.com/v1"
 )
 
 var pathConfigRootHelpSyn = "Configure the root Exoscale API credentials"
