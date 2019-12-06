@@ -27,6 +27,9 @@ operations that Vault-generated API keys will be restricted to when
 referencing this role. If no operations are specified during the role
 creation, resulting API keys based on this role will be unrestricted.
 
+Optionally, it is possible to specify lease configuration settings specific to
+a role, which if set will override system or backend-level lease values.
+
 Note: if the Exoscale root API key configured in the backend is itself
 restricted, you will not be able to specify API operations that the root API
 key is not allowed to perform. The list of available API operations is
