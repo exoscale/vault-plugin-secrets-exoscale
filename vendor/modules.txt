@@ -2,7 +2,7 @@
 github.com/armon/go-radix
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/exoscale/egoscale v0.20.0
+# github.com/exoscale/egoscale v0.21.0
 github.com/exoscale/egoscale
 # github.com/gofrs/uuid v3.2.0+incompatible
 github.com/gofrs/uuid
