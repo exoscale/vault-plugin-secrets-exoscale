@@ -2,6 +2,7 @@ package exoscale
 
 import (
 	"context"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -25,6 +26,9 @@ service: when creating a role, you can optionally specify a list of API
 operations that Vault-generated API keys will be restricted to when
 referencing this role. If no operations are specified during the role
 creation, resulting API keys based on this role will be unrestricted.
+
+Optionally, it is possible to specify lease configuration settings specific to
+a role, which if set will override system or backend-level lease values.
 
 Note: if the Exoscale root API key configured in the backend is itself
 restricted, you will not be able to specify API operations that the root API
@@ -56,6 +60,14 @@ func pathRole(b *exoscaleBackend) *framework.Path {
 			"operations": {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Comma-separated list of API operations to restrict API keys to",
+			},
+			"ttl": {
+				Type:        framework.TypeDurationSecond,
+				Description: "Duration of issued API key secrets",
+			},
+			"max_ttl": {
+				Type:        framework.TypeDurationSecond,
+				Description: `Duration after which the issued API key secrets are not allowed to be renewed`,
 			},
 		},
 
@@ -115,11 +127,18 @@ func (b *exoscaleBackend) readRole(ctx context.Context, req *logical.Request,
 		return nil, nil
 	}
 
-	return &logical.Response{
+	res := &logical.Response{
 		Data: map[string]interface{}{
 			"operations": role.Operations,
 		},
-	}, nil
+	}
+
+	if role.LeaseConfig != nil {
+		res.Data["ttl"] = int64(role.LeaseConfig.TTL.Seconds())
+		res.Data["max_ttl"] = int64(role.LeaseConfig.MaxTTL.Seconds())
+	}
+
+	return res, nil
 }
 
 func (b *exoscaleBackend) writeRole(ctx context.Context, req *logical.Request,
@@ -137,6 +156,22 @@ func (b *exoscaleBackend) writeRole(ctx context.Context, req *logical.Request,
 	operations, ok := data.GetOk("operations")
 	if ok {
 		role.Operations = operations.([]string)
+	}
+
+	ttl, hasTTL := data.GetOk("ttl")
+	maxTTL, hasMaxTTL := data.GetOk("max_ttl")
+	if hasTTL || hasMaxTTL {
+		if !hasTTL || !hasMaxTTL {
+			return logical.ErrorResponse(`"ttl" and "max_ttl" must both be specified`), nil
+		}
+		if ttl.(int) == 0 || maxTTL.(int) == 0 {
+			return logical.ErrorResponse(`"ttl" and "max_ttl" value must be greater than 0`), nil
+		}
+
+		role.LeaseConfig = &leaseConfig{
+			TTL:    time.Second * time.Duration(ttl.(int)),
+			MaxTTL: time.Second * time.Duration(maxTTL.(int)),
+		}
 	}
 
 	entry, err := logical.StorageEntryJSON(roleStoragePathPrefix+name, role)
@@ -162,5 +197,6 @@ func (b *exoscaleBackend) deleteRole(ctx context.Context, req *logical.Request,
 }
 
 type roleConfig struct {
-	Operations []string `json:"operations"`
+	Operations  []string     `json:"operations"`
+	LeaseConfig *leaseConfig `json:"lease_config,omitempty"`
 }

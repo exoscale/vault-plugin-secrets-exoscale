@@ -37,7 +37,7 @@ func pathConfigLease(b *exoscaleBackend) *framework.Path {
 
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.ReadOperation:   b.pathLeaseRead,
-			logical.UpdateOperation: b.pathLeaseUpdate,
+			logical.UpdateOperation: b.pathLeaseWrite,
 			logical.DeleteOperation: b.pathLeaseDelete,
 		},
 
@@ -82,11 +82,20 @@ func (b *exoscaleBackend) pathLeaseRead(ctx context.Context, req *logical.Reques
 	}, nil
 }
 
-func (b *exoscaleBackend) pathLeaseUpdate(ctx context.Context, req *logical.Request,
+func (b *exoscaleBackend) pathLeaseWrite(ctx context.Context, req *logical.Request,
 	data *framework.FieldData) (*logical.Response, error) {
+	ttl, hasTTL := data.GetOk("ttl")
+	maxTTL, hasMaxTTL := data.GetOk("max_ttl")
+	if !hasTTL || !hasMaxTTL {
+		return logical.ErrorResponse(`"ttl" and "max_ttl" must both be specified`), nil
+	}
+	if ttl.(int) == 0 || maxTTL.(int) == 0 {
+		return logical.ErrorResponse(`"ttl" and "max_ttl" value must be greater than 0`), nil
+	}
+
 	entry, err := logical.StorageEntryJSON(configLeaseStoragePath, &leaseConfig{
-		TTL:    time.Second * time.Duration(data.Get("ttl").(int)),
-		MaxTTL: time.Second * time.Duration(data.Get("max_ttl").(int)),
+		TTL:    time.Second * time.Duration(ttl.(int)),
+		MaxTTL: time.Second * time.Duration(maxTTL.(int)),
 	})
 	if err != nil {
 		return nil, err
