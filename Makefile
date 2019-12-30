@@ -2,10 +2,10 @@ VERSION := $(shell git describe --exact-match --tags $(git log -n1 --pretty='%h'
 ifndef VERSION
     VERSION = dev
 endif
-COMMIT := $(shell git rev-parse HEAD)
+COMMIT := $(shell git rev-parse --short HEAD)
 GO_PKG := github.com/exoscale/vault-plugin-secrets-exoscale
-GO_BUILDOPTS := -ldflags "-s -w -X $(GO_PKG)/version.Version=${VERSION} -X $(GO_PKG)/version.Commit=${COMMIT}"
-GO_OPTS := -mod vendor $(GO_BUILDOPTS)
+GO_OPTS := -mod vendor
+GO_BUILDOPTS := $(GO_OPTS) -ldflags "-s -w -X $(GO_PKG)/version.Version=${VERSION} -X $(GO_PKG)/version.Commit=${COMMIT}"
 GO_TEST ?= go test
 GO_TESTOPTS := $(GO_OPTS) -v -parallel 3 -count=1 -failfast
 PLUGIN_BIN := vault-plugin-secrets-exoscale
