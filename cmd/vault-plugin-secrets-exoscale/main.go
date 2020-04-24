@@ -14,7 +14,6 @@ func main() {
 	flags := apiClientMeta.FlagSet()
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		log.Fatalf("error parsing command line: %s", err)
-		os.Exit(1)
 	}
 
 	tlsConfig := apiClientMeta.GetTLSConfig()
@@ -26,6 +25,5 @@ func main() {
 	})
 	if err != nil {
 		log.Fatalf("shutting down: %s", err)
-		os.Exit(1)
 	}
 }

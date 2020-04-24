@@ -9,8 +9,8 @@ jobs:
     - uses: actions/checkout@v1
     - name: Run tests
       run: |
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.22.0
-        PATH=$(go env GOPATH)/bin:$PATH make testall
+        git submodule update --init --recursive go.mk
+        PATH=$(go env GOPATH)/bin:$PATH make lint test-verbose test-acc
       env:
         EXOSCALE_API_KEY: ${{ secrets.EXOSCALE_API_KEY }}
         EXOSCALE_API_SECRET: ${{ secrets.EXOSCALE_API_SECRET }}
