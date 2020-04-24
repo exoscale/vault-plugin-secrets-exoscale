@@ -26,6 +26,5 @@ func main() {
 	})
 	if err != nil {
 		log.Fatalf("shutting down: %s", err)
-		os.Exit(1)
 	}
 }
