@@ -1,6 +1,6 @@
 module github.com/exoscale/vault-plugin-secrets-exoscale
 
-go 1.13
+go 1.14
 
 require (
 	github.com/exoscale/egoscale v0.21.0
