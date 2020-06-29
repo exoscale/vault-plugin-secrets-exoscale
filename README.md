@@ -21,7 +21,7 @@ You can find pre-built releases of the plugin [here][ghreleases]. Once you have 
 
 ### From Sources
 
-If you prefer to build the plugin from sources, clone the GitHub repository locally and run the command `make build` from the root of the sources directory. Upon successful compilation, a `vault-plugin-secrets-exoscale` plugin binary file can be found in the directory.
+If you prefer to build the plugin from sources, clone the GitHub repository locally and run the command `make build` from the root of the sources directory. Upon successful compilation, the resulting `vault-plugin-secrets-exoscale` binary is stored in the `bin/` directory.
 
 ## Configuration
 
