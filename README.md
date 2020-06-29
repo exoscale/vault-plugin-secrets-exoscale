@@ -25,7 +25,7 @@ If you prefer to build the plugin from sources, clone the GitHub repository loca
 
 ## Configuration
 
-Copy the plugin binary into a location of your choice; this directory must be specified as the [`plugin_directory`] [vaultdocplugindir] in the Vault configuration file:
+Copy the plugin binary into a location of your choice; this directory must be specified as the [`plugin_directory`][vaultdocplugindir] in the Vault configuration file:
 
 ```hcl
 plugin_directory = "path/to/plugin/directory"
