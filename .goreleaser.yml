@@ -7,7 +7,7 @@ builds:
   flags:
     - -mod=vendor
   ldflags:
-    - -s -w -X {{.Env.GO_PKG}}/version.Version={{.Version}} -X {{.Env.GO_PKG}}/version.Commit={{.FullCommit}}
+    - -s -w -X {{.Env.GO_PKG}}/version.Version={{.Version}} -X {{.Env.GO_PKG}}/version.Commit={{.ShortCommit}}
   goos:
     - darwin
     - linux
