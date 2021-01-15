@@ -35,7 +35,7 @@ func secretAPIKey(b *exoscaleBackend) *framework.Secret {
 }
 
 func (b *exoscaleBackend) secretAPIKeyRenew(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
+	_ *framework.FieldData) (*logical.Response, error) {
 	lc, err := b.leaseConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (b *exoscaleBackend) secretAPIKeyRenew(ctx context.Context, req *logical.Re
 }
 
 func (b *exoscaleBackend) secretAPIKeyRevoke(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
+	_ *framework.FieldData) (*logical.Response, error) {
 	if b.exo == nil {
 		return nil, errors.New("backend is not configured")
 	}

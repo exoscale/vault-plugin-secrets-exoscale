@@ -11,8 +11,9 @@ import (
 
 const configLeaseStoragePath = "config/lease"
 
-var pathConfigLeaseHelpSyn = "Configure the backend-specific secrets lease parameters"
-var pathConfigLeaseHelpDesc = `
+var (
+	pathConfigLeaseHelpSyn  = "Configure the backend-specific secrets lease parameters"
+	pathConfigLeaseHelpDesc = `
 This endpoint manages the secrets lease duration applied to generated API key
 secrets. If not configured, global system lease values are applied to generated
 secrets.
@@ -20,6 +21,7 @@ secrets.
 Note: it is not possible to configure a lease duration greater than the
 system's defaults.
 `
+)
 
 func pathConfigLease(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{
@@ -35,10 +37,10 @@ func pathConfigLease(b *exoscaleBackend) *framework.Path {
 			},
 		},
 
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation:   b.pathLeaseRead,
-			logical.UpdateOperation: b.pathLeaseWrite,
-			logical.DeleteOperation: b.pathLeaseDelete,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.ReadOperation:   &framework.PathOperation{Callback: b.pathLeaseRead},
+			logical.UpdateOperation: &framework.PathOperation{Callback: b.pathLeaseWrite},
+			logical.DeleteOperation: &framework.PathOperation{Callback: b.pathLeaseDelete},
 		},
 
 		HelpSynopsis:    pathConfigLeaseHelpSyn,
@@ -65,7 +67,7 @@ func (b *exoscaleBackend) leaseConfig(ctx context.Context, storage logical.Stora
 }
 
 func (b *exoscaleBackend) pathLeaseRead(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
+	_ *framework.FieldData) (*logical.Response, error) {
 	lease, err := b.leaseConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -108,7 +110,7 @@ func (b *exoscaleBackend) pathLeaseWrite(ctx context.Context, req *logical.Reque
 }
 
 func (b *exoscaleBackend) pathLeaseDelete(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
+	_ *framework.FieldData) (*logical.Response, error) {
 	if err := req.Storage.Delete(ctx, configLeaseStoragePath); err != nil {
 		return nil, err
 	}
@@ -117,6 +119,6 @@ func (b *exoscaleBackend) pathLeaseDelete(ctx context.Context, req *logical.Requ
 }
 
 type leaseConfig struct {
-	TTL    time.Duration `json:"ttl" mapstructure:"ttl"`
-	MaxTTL time.Duration `json:"max_ttl" mapstructure:"max_ttl"`
+	TTL    time.Duration `json:"ttl"`
+	MaxTTL time.Duration `json:"max_ttl"`
 }

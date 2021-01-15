@@ -3,23 +3,21 @@ package exoscale
 import (
 	"context"
 
-	"github.com/exoscale/vault-plugin-secrets-exoscale/version"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/stretchr/testify/require"
+
+	"github.com/exoscale/vault-plugin-secrets-exoscale/version"
 )
 
-func (t *backendTestSuite) TestPathInfoRead() {
-	backend, storage := testBackend(t.T())
-
-	res, err := backend.HandleRequest(context.Background(), &logical.Request{
-		Storage:   storage,
+func (ts *backendTestSuite) TestPathInfoRead() {
+	res, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
+		Storage:   ts.storage,
 		Operation: logical.ReadOperation,
 		Path:      "info",
 	})
 	if err != nil {
-		t.FailNow("request failed", err)
+		ts.FailNow("request failed", err)
 	}
 
-	require.Equal(t.T(), version.Version, res.Data["version"].(string))
-	require.Equal(t.T(), version.Commit, res.Data["commit"].(string))
+	ts.Require().Equal(version.Version, res.Data["version"].(string))
+	ts.Require().Equal(version.Commit, res.Data["commit"].(string))
 }

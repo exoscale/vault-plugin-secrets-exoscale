@@ -11,13 +11,14 @@ import (
 
 const roleStoragePathPrefix = "role/"
 
-var pathListRolesHelpSyn = "List the configured backend roles"
-var pathListRolesHelpDesc = `
+var (
+	pathListRolesHelpSyn  = "List the configured backend roles"
+	pathListRolesHelpDesc = `
 This endpoint returns a list of the configured backend roles.
 `
 
-var pathRoleHelpSyn = "Manage backend roles"
-var pathRoleHelpDesc = `
+	pathRoleHelpSyn  = "Manage backend roles"
+	pathRoleHelpDesc = `
 This endpoint manages backend roles, which are used to generate Exoscale API
 key secrets with Vault.
 
@@ -35,6 +36,7 @@ restricted, you will not be able to specify API operations that the root API
 key is not allowed to perform. The list of available API operations is
 documented on the Exoscale API website: https://api.exoscale.com/
 `
+)
 
 func pathListRoles(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{
@@ -83,8 +85,8 @@ func pathRole(b *exoscaleBackend) *framework.Path {
 	}
 }
 
-func (b *exoscaleBackend) roleConfig(ctx context.Context, storage logical.Storage, name string) (*roleConfig, error) {
-	var role roleConfig
+func (b *exoscaleBackend) roleConfig(ctx context.Context, storage logical.Storage, name string) (*backendRole, error) {
+	var role backendRole
 
 	if name == "" {
 		return nil, errors.New("invalid role name")
@@ -106,7 +108,7 @@ func (b *exoscaleBackend) roleConfig(ctx context.Context, storage logical.Storag
 }
 
 func (b *exoscaleBackend) listRoles(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
+	_ *framework.FieldData) (*logical.Response, error) {
 	roles, err := req.Storage.List(ctx, roleStoragePathPrefix)
 	if err != nil {
 		return nil, err
@@ -150,7 +152,7 @@ func (b *exoscaleBackend) writeRole(ctx context.Context, req *logical.Request,
 		return nil, err
 	}
 	if role == nil {
-		role = new(roleConfig)
+		role = new(backendRole)
 	}
 
 	operations, ok := data.GetOk("operations")
@@ -196,7 +198,7 @@ func (b *exoscaleBackend) deleteRole(ctx context.Context, req *logical.Request,
 	return nil, nil
 }
 
-type roleConfig struct {
+type backendRole struct {
 	Operations  []string     `json:"operations"`
 	LeaseConfig *leaseConfig `json:"lease_config,omitempty"`
 }
