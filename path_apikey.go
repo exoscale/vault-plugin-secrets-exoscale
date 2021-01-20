@@ -14,8 +14,9 @@ import (
 
 const apiKeyPathPrefix = "apikey/"
 
-var pathAPIKeyHelpSyn = "Issue new Exoscale API key/secret credentials"
-var pathAPIKeyHelpDesc = `
+var (
+	pathAPIKeyHelpSyn  = "Issue new Exoscale API key/secret credentials"
+	pathAPIKeyHelpDesc = `
 This endpoint dynamically generates Exoscale API key/secret credentials based
 on a role, depending on which the generated API key will be restricted to
 certain API operations.
@@ -23,6 +24,7 @@ certain API operations.
 Note: the backend doesn't store the generated API credentials, there is no way
 to recover an API secret after it's been returned during the secret creation.
 `
+)
 
 func pathAPIKey(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{

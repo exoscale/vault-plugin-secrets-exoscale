@@ -1,16 +1,20 @@
 name: CI
 
-on: [push]
+on:
+  push:
+    branches:
+    - '**'
+    paths-ignore:
+    - '**.md'
+    tags-ignore:
+    - 'v*' # Don't run CI tests on release tags
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
     - name: Run tests
       run: |
         git submodule update --init --recursive go.mk
-        PATH=$(go env GOPATH)/bin:$PATH make lint test-verbose test-acc
-      env:
-        EXOSCALE_API_KEY: ${{ secrets.EXOSCALE_API_KEY }}
-        EXOSCALE_API_SECRET: ${{ secrets.EXOSCALE_API_SECRET }}
+        PATH=$(go env GOPATH)/bin:$PATH make lint test-verbose

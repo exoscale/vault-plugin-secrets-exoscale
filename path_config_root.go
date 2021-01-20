@@ -12,11 +12,16 @@ import (
 const (
 	configRootStoragePath = "config/root"
 
+	configKeyAPIEndpoint   = "api_endpoint"
+	configKeyRootAPIKey    = "root_api_key"
+	configKeyRootAPISecret = "root_api_secret"
+
 	defaultAPIEndpoint = "https://api.exoscale.com/v1"
 )
 
-var pathConfigRootHelpSyn = "Configure the root Exoscale API credentials"
-var pathConfigRootHelpDesc = `
+var (
+	pathConfigRootHelpSyn  = "Configure the root Exoscale API credentials"
+	pathConfigRootHelpDesc = `
 This endpoint manages the backend configuration of the root Exoscale API
 credentials used by Vault to interact with the Exoscale IAM API in order to
 perform API key secrets handling.
@@ -29,6 +34,7 @@ unrestricted root API key and define role to restrict API key secrets to
 specific API operations (see the <mountpoint>/role/_ endpoint for more
 information).
 `
+)
 
 var errMissingAPICredentials = errors.New("missing root API credentials")
 
@@ -36,24 +42,26 @@ func pathConfigRoot(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: "config/root",
 		Fields: map[string]*framework.FieldSchema{
-			"api_endpoint": {
+			configKeyAPIEndpoint: {
 				Type:        framework.TypeString,
 				Description: "Exoscale API endpoint",
 			},
-			"root_api_key": {
-				Type:        framework.TypeString,
-				Description: "Exoscale API key",
+			configKeyRootAPIKey: {
+				Type:         framework.TypeString,
+				Description:  "Exoscale API key",
+				DisplayAttrs: &framework.DisplayAttributes{Sensitive: true},
 			},
-			"root_api_secret": {
-				Type:        framework.TypeString,
-				Description: "Exoscale API secret",
+			configKeyRootAPISecret: {
+				Type:         framework.TypeString,
+				Description:  "Exoscale API secret",
+				DisplayAttrs: &framework.DisplayAttributes{Sensitive: true},
 			},
 		},
 
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.CreateOperation: b.pathConfigWrite,
-			logical.UpdateOperation: b.pathConfigWrite,
-			logical.ReadOperation:   b.pathConfigRead,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.CreateOperation: &framework.PathOperation{Callback: b.pathConfigWrite},
+			logical.UpdateOperation: &framework.PathOperation{Callback: b.pathConfigWrite},
+			logical.ReadOperation:   &framework.PathOperation{Callback: b.pathConfigRead},
 		},
 
 		HelpSynopsis:    pathConfigRootHelpSyn,
@@ -62,8 +70,7 @@ func pathConfigRoot(b *exoscaleBackend) *framework.Path {
 }
 
 func (b *exoscaleBackend) pathConfigRead(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
-
+	_ *framework.FieldData) (*logical.Response, error) {
 	config, err := b.config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -73,25 +80,24 @@ func (b *exoscaleBackend) pathConfigRead(ctx context.Context, req *logical.Reque
 
 	return &logical.Response{
 		Data: map[string]interface{}{
-			"api_endpoint":    config.APIEndpoint,
-			"root_api_key":    config.RootAPIKey,
-			"root_api_secret": config.RootAPISecret,
+			configKeyAPIEndpoint:   config.APIEndpoint,
+			configKeyRootAPIKey:    config.RootAPIKey,
+			configKeyRootAPISecret: config.RootAPISecret,
 		},
 	}, nil
 }
 
 func (b *exoscaleBackend) pathConfigWrite(ctx context.Context, req *logical.Request,
 	data *framework.FieldData) (*logical.Response, error) {
-
 	config := &backendConfig{APIEndpoint: defaultAPIEndpoint}
 
-	if v, ok := data.GetOk("api_endpoint"); ok {
+	if v, ok := data.GetOk(configKeyAPIEndpoint); ok {
 		config.APIEndpoint = v.(string)
 	}
-	if v, ok := data.GetOk("root_api_key"); ok {
+	if v, ok := data.GetOk(configKeyRootAPIKey); ok {
 		config.RootAPIKey = v.(string)
 	}
-	if v, ok := data.GetOk("root_api_secret"); ok {
+	if v, ok := data.GetOk(configKeyRootAPISecret); ok {
 		config.RootAPISecret = v.(string)
 	}
 
