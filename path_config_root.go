@@ -2,11 +2,11 @@ package exoscale
 
 import (
 	"context"
-	"errors"
 
 	"github.com/exoscale/egoscale"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -69,9 +69,27 @@ func pathConfigRoot(b *exoscaleBackend) *framework.Path {
 	}
 }
 
+func (b *exoscaleBackend) backendConfig(ctx context.Context, storage logical.Storage) (*backendConfig, error) {
+	var config backendConfig
+
+	entry, err := storage.Get(ctx, configRootStoragePath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error retrieving backend configuration")
+	}
+	if entry == nil {
+		return nil, nil
+	}
+
+	if err := entry.DecodeJSON(&config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
 func (b *exoscaleBackend) pathConfigRead(ctx context.Context, req *logical.Request,
 	_ *framework.FieldData) (*logical.Response, error) {
-	config, err := b.config(ctx, req.Storage)
+	config, err := b.backendConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	} else if config == nil {

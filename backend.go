@@ -2,7 +2,6 @@ package exoscale
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/exoscale/egoscale"
@@ -22,24 +21,6 @@ keys based on role-based policies.
 type exoscaleBackend struct {
 	exo *egoscale.Client
 	*framework.Backend
-}
-
-func (b *exoscaleBackend) config(ctx context.Context, storage logical.Storage) (*backendConfig, error) {
-	var config backendConfig
-
-	raw, err := storage.Get(ctx, configRootStoragePath)
-	if err != nil {
-		return nil, err
-	}
-	if raw == nil {
-		return nil, nil
-	}
-
-	if err := json.Unmarshal(raw.Value, &config); err != nil {
-		return nil, err
-	}
-
-	return &config, nil
 }
 
 func init() {
@@ -69,6 +50,14 @@ func Factory(ctx context.Context, config *logical.BackendConfig) (logical.Backen
 		Secrets: []*framework.Secret{
 			secretAPIKey(&backend),
 		},
+	}
+
+	backendConfig, err := backend.backendConfig(ctx, config.StorageView)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch backend config from storage")
+	}
+	if backendConfig != nil {
+		backend.exo = egoscale.NewClient(backendConfig.APIEndpoint, backendConfig.RootAPIKey, backendConfig.RootAPISecret)
 	}
 
 	if err := backend.Setup(ctx, config); err != nil {
