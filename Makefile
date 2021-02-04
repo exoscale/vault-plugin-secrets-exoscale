@@ -17,7 +17,6 @@ test-acc: GO_TEST_EXTRA_ARGS=-v $(EXTRA_ARGS)
 test-acc: ## Run acceptance tests (requires valid Exoscale API credentials)
 	$(GO) test                      \
 		-race                       \
-		-mod $(GO_VENDOR_DIR)       \
 		-timeout $(GO_TEST_TIMEOUT) \
 		--tags=testacc              \
 		$(GO_TEST_EXTRA_ARGS)       \
