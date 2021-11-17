@@ -10,11 +10,18 @@ on:
     - 'v*' # Don't run CI tests on release tags
 
 jobs:
-  test:
+  CI:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    - name: Run tests
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.17'
+    - name: Lint
+      uses: golangci/golangci-lint-action@v2
+      with:
+        version: v1.42
+    - name: Tests
       run: |
         git submodule update --init --recursive go.mk
-        PATH=$(go env GOPATH)/bin:$PATH make lint test-verbose
+        PATH=$(go env GOPATH)/bin:$PATH make test-verbose

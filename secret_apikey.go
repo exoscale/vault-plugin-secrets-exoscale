@@ -2,11 +2,12 @@ package exoscale
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
-	"github.com/exoscale/egoscale"
+	egoscale "github.com/exoscale/egoscale/v2"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/pkg/errors"
 )
 
 const SecretTypeAPIKey = "apikey"
@@ -34,8 +35,11 @@ func secretAPIKey(b *exoscaleBackend) *framework.Secret {
 	}
 }
 
-func (b *exoscaleBackend) secretAPIKeyRenew(ctx context.Context, req *logical.Request,
-	_ *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) secretAPIKeyRenew(
+	ctx context.Context,
+	req *logical.Request,
+	_ *framework.FieldData,
+) (*logical.Response, error) {
 	lc, err := b.leaseConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -51,19 +55,28 @@ func (b *exoscaleBackend) secretAPIKeyRenew(ctx context.Context, req *logical.Re
 	return res, nil
 }
 
-func (b *exoscaleBackend) secretAPIKeyRevoke(ctx context.Context, req *logical.Request,
-	_ *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) secretAPIKeyRevoke(
+	ctx context.Context,
+	req *logical.Request,
+	_ *framework.FieldData,
+) (*logical.Response, error) {
 	if b.exo == nil {
 		return nil, errors.New("backend is not configured")
 	}
 
-	key, ok := req.Secret.InternalData["api_key"]
+	config, err := b.config(ctx, req.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve backend configuration: %w", err)
+	}
+
+	k, ok := req.Secret.InternalData["api_key"]
 	if !ok {
 		return nil, errors.New("API key is missing from the secret")
 	}
+	key := k.(string)
 
-	if _, err := b.exo.RequestWithContext(ctx, &egoscale.RevokeAPIKey{Key: key.(string)}); err != nil {
-		return nil, errors.Wrap(err, "unable to revoke the API key")
+	if err = b.exo.RevokeIAMAccessKey(ctx, config.Zone, &egoscale.IAMAccessKey{Key: &key}); err != nil {
+		return nil, fmt.Errorf("unable to revoke the API key: %w", err)
 	}
 
 	return nil, nil

@@ -55,12 +55,13 @@ $ vault secrets enable -plugin-name="exoscale" plugin
 
 ### Secrets Backend Configuration
 
-In order to be able to issue Vault secrets, the backend must be configured with root Exoscale API credentials beforehand:
+In order to be able to issue Vault secrets, the backend must be configured with root Exoscale API credentials and an Exoscale zone beforehand:
 
 ```sh
-$ vault write exoscale/config/root \
-    root_api_key=${EXOSCALE_API_KEY} \
-    root_api_secret=${EXOSCALE_API_SECRET}
+$ vault write exoscale/config/root         \
+    root_api_key=${EXOSCALE_API_KEY}       \
+    root_api_secret=${EXOSCALE_API_SECRET} \
+    zone=ch-gva-2
 ```
 
 Optionally, Exoscale API key [secrets lease][vaultdoclease] duration can be set at backend level (by default, the Vault server system-level value is used):
@@ -79,7 +80,7 @@ Note: if the Exoscale root API key configured in the backend is itself restricte
 
 ```sh
 $ vault write exoscale/role/list-only \
-	operations=compute/listZones,compute/listServiceOfferings
+	operations=list-zones,list-instance-types
 ```
 
 ###  Exoscale API Keys Secrets

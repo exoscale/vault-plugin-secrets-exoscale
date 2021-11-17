@@ -4,20 +4,19 @@ import (
 	"context"
 	"testing"
 
-	"github.com/exoscale/egoscale"
+	"github.com/gofrs/uuid"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/suite"
 )
 
-type backendTestSuite struct {
+type testSuite struct {
+	suite.Suite
+
 	backend logical.Backend
 	storage logical.Storage
-
-	suite.Suite
 }
 
-func (ts *backendTestSuite) storeEntry(k string, v interface{}) {
+func (ts *testSuite) storeEntry(k string, v interface{}) {
 	entry, err := logical.StorageEntryJSON(k, v)
 	if err != nil {
 		ts.FailNow("unable to JSON-encode entry", err)
@@ -28,14 +27,15 @@ func (ts *backendTestSuite) storeEntry(k string, v interface{}) {
 	}
 }
 
-func (ts *backendTestSuite) SetupTest() {
+func (ts *testSuite) SetupTest() {
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
 
 	backendConfigEntry, err := logical.StorageEntryJSON(configRootStoragePath, backendConfig{
-		APIEndpoint:   testConfigAPIEndpoint,
-		RootAPIKey:    testConfigRootAPIKey,
-		RootAPISecret: testConfigRootAPISecret,
+		APIEnvironment: testConfigAPIEnvironment,
+		RootAPIKey:     testConfigRootAPIKey,
+		RootAPISecret:  testConfigRootAPISecret,
+		Zone:           testConfigZone,
 	})
 	if err != nil {
 		ts.FailNow("unable to JSON-encode backend config entry", err)
@@ -48,27 +48,25 @@ func (ts *backendTestSuite) SetupTest() {
 	if err != nil {
 		ts.T().Fatal(err)
 	}
-
-	exo := egoscale.NewClient(
-		testConfigAPIEndpoint,
-		testConfigRootAPIKey,
-		testConfigRootAPISecret)
-
-	httpmock.ActivateNonDefault(exo.HTTPClient)
-
-	backend.(*exoscaleBackend).exo = exo
+	backend.(*exoscaleBackend).exo = new(exoscaleClientMock)
 
 	ts.backend = backend
 	ts.storage = config.StorageView
 }
 
-func (ts *backendTestSuite) TearDownTest() {
+func (ts *testSuite) TearDownTest() {
 	ts.backend = nil
 	ts.storage = nil
+}
 
-	httpmock.DeactivateAndReset()
+func (ts *testSuite) randomID() string {
+	id, err := uuid.NewV4()
+	if err != nil {
+		ts.T().Fatalf("unable to generate a new UUID: %s", err)
+	}
+	return id.String()
 }
 
 func TestSuite(t *testing.T) {
-	suite.Run(t, new(backendTestSuite))
+	suite.Run(t, new(testSuite))
 }

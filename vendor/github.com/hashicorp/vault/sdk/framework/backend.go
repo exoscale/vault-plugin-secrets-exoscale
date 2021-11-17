@@ -3,6 +3,7 @@ package framework
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,14 +14,16 @@ import (
 	"sync"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/errwrap"
 	log "github.com/hashicorp/go-hclog"
-	multierror "github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/vault/sdk/helper/entropy"
+	"github.com/hashicorp/go-kms-wrapping/entropy"
+	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-secure-stdlib/parseutil"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/helper/errutil"
 	"github.com/hashicorp/vault/sdk/helper/license"
 	"github.com/hashicorp/vault/sdk/helper/logging"
-	"github.com/hashicorp/vault/sdk/helper/parseutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -40,10 +43,8 @@ type Backend struct {
 	// paths, including adding or removing, is not allowed once the
 	// backend is in use).
 	//
-	// PathsSpecial is the list of path patterns that denote the
-	// paths above that require special privileges. These can't be
-	// regular expressions, it is either exact match or prefix match.
-	// For prefix match, append '*' as a suffix.
+	// PathsSpecial is the list of path patterns that denote the paths above
+	// that require special privileges.
 	Paths        []*Path
 	PathsSpecial *logical.Paths
 
@@ -60,9 +61,9 @@ type Backend struct {
 	// periodic timer of RollbackManager ticks. This can be used by
 	// backends to do anything it wishes to do periodically.
 	//
-	// PeriodicFunc can be invoked to, say to periodically delete stale
+	// PeriodicFunc can be invoked to, say periodically delete stale
 	// entries in backend's storage, while the backend is still being used.
-	// (Note the different of this action from what `Clean` does, which is
+	// (Note the difference between this action and `Clean`, which is
 	// invoked just before the backend is unmounted).
 	PeriodicFunc periodicFunc
 
@@ -79,7 +80,7 @@ type Backend struct {
 	// to the backend, if required.
 	Clean CleanupFunc
 
-	// Invalidate is called when a keys is modified if required
+	// Invalidate is called when a key is modified, if required.
 	Invalidate InvalidateFunc
 
 	// AuthRenew is the callback to call when a RenewRequest for an
@@ -87,7 +88,7 @@ type Backend struct {
 	// See the built-in AuthRenew helpers in lease.go for common callbacks.
 	AuthRenew OperationFunc
 
-	// Type is the logical.BackendType for the backend implementation
+	// BackendType is the logical.BackendType for the backend implementation
 	BackendType logical.BackendType
 
 	logger  log.Logger
@@ -118,6 +119,10 @@ type InvalidateFunc func(context.Context, string)
 // InitializeFunc is the callback, which if set, will be invoked via
 // Initialize() just after a plugin has been mounted.
 type InitializeFunc func(context.Context, *logical.InitializationRequest) error
+
+// PatchPreprocessorFunc is used by HandlePatchOperation in order to shape
+// the input as defined by request handler prior to JSON marshaling
+type PatchPreprocessorFunc func(map[string]interface{}) (map[string]interface{}, error)
 
 // Initialize is the logical.Backend implementation.
 func (b *Backend) Initialize(ctx context.Context, req *logical.InitializationRequest) error {
@@ -163,7 +168,8 @@ func (b *Backend) HandleExistenceCheck(ctx context.Context, req *logical.Request
 
 	fd := FieldData{
 		Raw:    raw,
-		Schema: path.Fields}
+		Schema: path.Fields,
+	}
 
 	err = fd.Validate()
 	if err != nil {
@@ -225,6 +231,21 @@ func (b *Backend) HandleRequest(ctx context.Context, req *logical.Request) (*log
 
 	if path.Operations != nil {
 		if op, ok := path.Operations[req.Operation]; ok {
+
+			// Check whether this operation should be forwarded
+			if sysView := b.System(); sysView != nil {
+				replState := sysView.ReplicationState()
+				props := op.Properties()
+
+				if props.ForwardPerformanceStandby && replState.HasState(consts.ReplicationPerformanceStandby) {
+					return nil, logical.ErrReadOnly
+				}
+
+				if props.ForwardPerformanceSecondary && !sysView.LocalMount() && replState.HasState(consts.ReplicationPerformanceSecondary) {
+					return nil, logical.ErrReadOnly
+				}
+			}
+
 			callback = op.Handler()
 		}
 	} else {
@@ -244,16 +265,68 @@ func (b *Backend) HandleRequest(ctx context.Context, req *logical.Request) (*log
 
 	fd := FieldData{
 		Raw:    raw,
-		Schema: path.Fields}
+		Schema: path.Fields,
+	}
 
 	if req.Operation != logical.HelpOperation {
 		err := fd.Validate()
+		if err != nil {
+			return logical.ErrorResponse(fmt.Sprintf("Field validation failed: %s", err.Error())), nil
+		}
+	}
+
+	return callback(ctx, req, &fd)
+}
+
+// HandlePatchOperation acts as an abstraction for performing JSON merge patch
+// operations (see https://datatracker.ietf.org/doc/html/rfc7396) for HTTP
+// PATCH requests. It is responsible for properly processing and marshalling
+// the input and existing resource prior to performing the JSON merge operation
+// using the MergePatch function from the json-patch library. The preprocessor
+// is an arbitrary func that can be provided to further process the input. The
+// MergePatch function accepts and returns byte arrays.
+func HandlePatchOperation(input *FieldData, resource map[string]interface{}, preprocessor PatchPreprocessorFunc) ([]byte, error) {
+	var err error
+
+	if resource == nil {
+		return nil, fmt.Errorf("resource does not exist")
+	}
+
+	inputMap := map[string]interface{}{}
+
+	// Parse all fields to ensure data types are handled properly according to the FieldSchema
+	for key := range input.Raw {
+		val, ok := input.GetOk(key)
+
+		// Only accept fields in the schema
+		if ok {
+			inputMap[key] = val
+		}
+	}
+
+	if preprocessor != nil {
+		inputMap, err = preprocessor(inputMap)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return callback(ctx, req, &fd)
+	marshaledResource, err := json.Marshal(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	marshaledInput, err := json.Marshal(inputMap)
+	if err != nil {
+		return nil, err
+	}
+
+	modified, err := jsonpatch.MergePatch(marshaledResource, marshaledInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return modified, nil
 }
 
 // SpecialPaths is the logical.Backend implementation.
@@ -607,6 +680,10 @@ func (t FieldType) Zero() interface{} {
 		return []int{}
 	case TypeHeader:
 		return http.Header{}
+	case TypeFloat:
+		return 0.0
+	case TypeTime:
+		return time.Time{}
 	default:
 		panic("unknown type: " + t.String())
 	}

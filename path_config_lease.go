@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/pkg/errors"
 )
 
 const configLeaseStoragePath = "config/lease"
@@ -49,25 +48,28 @@ func pathConfigLease(b *exoscaleBackend) *framework.Path {
 }
 
 func (b *exoscaleBackend) leaseConfig(ctx context.Context, storage logical.Storage) (*leaseConfig, error) {
-	var leaseConfig leaseConfig
+	var lc leaseConfig
 
 	entry, err := storage.Get(ctx, configLeaseStoragePath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error retrieving lease configuration")
+		return nil, err
 	}
 	if entry == nil {
 		return nil, nil
 	}
 
-	if err := entry.DecodeJSON(&leaseConfig); err != nil {
+	if err := entry.DecodeJSON(&lc); err != nil {
 		return nil, err
 	}
 
-	return &leaseConfig, nil
+	return &lc, nil
 }
 
-func (b *exoscaleBackend) pathLeaseRead(ctx context.Context, req *logical.Request,
-	_ *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) pathLeaseRead(
+	ctx context.Context,
+	req *logical.Request,
+	_ *framework.FieldData,
+) (*logical.Response, error) {
 	lease, err := b.leaseConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -84,8 +86,11 @@ func (b *exoscaleBackend) pathLeaseRead(ctx context.Context, req *logical.Reques
 	}, nil
 }
 
-func (b *exoscaleBackend) pathLeaseWrite(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) pathLeaseWrite(
+	ctx context.Context,
+	req *logical.Request,
+	data *framework.FieldData,
+) (*logical.Response, error) {
 	ttl, hasTTL := data.GetOk("ttl")
 	maxTTL, hasMaxTTL := data.GetOk("max_ttl")
 	if !hasTTL || !hasMaxTTL {
@@ -109,8 +114,11 @@ func (b *exoscaleBackend) pathLeaseWrite(ctx context.Context, req *logical.Reque
 	return nil, nil
 }
 
-func (b *exoscaleBackend) pathLeaseDelete(ctx context.Context, req *logical.Request,
-	_ *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) pathLeaseDelete(
+	ctx context.Context,
+	req *logical.Request,
+	_ *framework.FieldData,
+) (*logical.Response, error) {
 	if err := req.Storage.Delete(ctx, configLeaseStoragePath); err != nil {
 		return nil, err
 	}

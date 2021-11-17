@@ -12,7 +12,7 @@ var (
 	testConfigLeaseMaxTTL = 2 * time.Hour
 )
 
-func (ts *backendTestSuite) TestPathConfigLeaseWrite() {
+func (ts *testSuite) TestPathConfigLeaseWrite() {
 	var actualLeaseConfig leaseConfig
 
 	_, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
@@ -42,7 +42,7 @@ func (ts *backendTestSuite) TestPathConfigLeaseWrite() {
 	}, actualLeaseConfig)
 }
 
-func (ts *backendTestSuite) TestPathConfigLeaseRead() {
+func (ts *testSuite) TestPathConfigLeaseRead() {
 	ts.storeEntry(configLeaseStoragePath, leaseConfig{
 		TTL:    testConfigLeaseTTL,
 		MaxTTL: testConfigLeaseMaxTTL,

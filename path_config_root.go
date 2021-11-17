@@ -2,21 +2,23 @@ package exoscale
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
-	"github.com/exoscale/egoscale"
+	egoscale "github.com/exoscale/egoscale/v2"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/pkg/errors"
 )
 
 const (
 	configRootStoragePath = "config/root"
 
-	configKeyAPIEndpoint   = "api_endpoint"
-	configKeyRootAPIKey    = "root_api_key"
-	configKeyRootAPISecret = "root_api_secret"
+	configAPIEnvironment = "api_environment"
+	configRootAPIKey     = "root_api_key"
+	configRootAPISecret  = "root_api_secret"
+	configZone           = "zone"
 
-	defaultAPIEndpoint = "https://api.exoscale.com/v1"
+	defaultAPIEnvironment = "api"
 )
 
 var (
@@ -34,27 +36,33 @@ unrestricted root API key and define role to restrict API key secrets to
 specific API operations (see the <mountpoint>/role/_ endpoint for more
 information).
 `
-)
 
-var errMissingAPICredentials = errors.New("missing root API credentials")
+	errMissingAPICredentials = errors.New("missing root API credentials")
+	errMissingZone           = errors.New("missing zone")
+)
 
 func pathConfigRoot(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: "config/root",
 		Fields: map[string]*framework.FieldSchema{
-			configKeyAPIEndpoint: {
+			configAPIEnvironment: {
 				Type:        framework.TypeString,
-				Description: "Exoscale API endpoint",
+				Description: "Exoscale API environment",
+				Default:     defaultAPIEnvironment,
 			},
-			configKeyRootAPIKey: {
+			configRootAPIKey: {
 				Type:         framework.TypeString,
 				Description:  "Exoscale API key",
 				DisplayAttrs: &framework.DisplayAttributes{Sensitive: true},
 			},
-			configKeyRootAPISecret: {
+			configRootAPISecret: {
 				Type:         framework.TypeString,
 				Description:  "Exoscale API secret",
 				DisplayAttrs: &framework.DisplayAttributes{Sensitive: true},
+			},
+			configZone: {
+				Type:        framework.TypeString,
+				Description: "Exoscale zone",
 			},
 		},
 
@@ -69,12 +77,12 @@ func pathConfigRoot(b *exoscaleBackend) *framework.Path {
 	}
 }
 
-func (b *exoscaleBackend) backendConfig(ctx context.Context, storage logical.Storage) (*backendConfig, error) {
+func (b *exoscaleBackend) config(ctx context.Context, storage logical.Storage) (*backendConfig, error) {
 	var config backendConfig
 
 	entry, err := storage.Get(ctx, configRootStoragePath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error retrieving backend configuration")
+		return nil, err
 	}
 	if entry == nil {
 		return nil, nil
@@ -87,9 +95,12 @@ func (b *exoscaleBackend) backendConfig(ctx context.Context, storage logical.Sto
 	return &config, nil
 }
 
-func (b *exoscaleBackend) pathConfigRead(ctx context.Context, req *logical.Request,
-	_ *framework.FieldData) (*logical.Response, error) {
-	config, err := b.backendConfig(ctx, req.Storage)
+func (b *exoscaleBackend) pathConfigRead(
+	ctx context.Context,
+	req *logical.Request,
+	_ *framework.FieldData,
+) (*logical.Response, error) {
+	config, err := b.config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	} else if config == nil {
@@ -98,29 +109,36 @@ func (b *exoscaleBackend) pathConfigRead(ctx context.Context, req *logical.Reque
 
 	return &logical.Response{
 		Data: map[string]interface{}{
-			configKeyAPIEndpoint:   config.APIEndpoint,
-			configKeyRootAPIKey:    config.RootAPIKey,
-			configKeyRootAPISecret: config.RootAPISecret,
+			configAPIEnvironment: config.APIEnvironment,
+			configRootAPIKey:     config.RootAPIKey,
+			configRootAPISecret:  config.RootAPISecret,
+			configZone:           config.Zone,
 		},
 	}, nil
 }
 
-func (b *exoscaleBackend) pathConfigWrite(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
-	config := &backendConfig{APIEndpoint: defaultAPIEndpoint}
+func (b *exoscaleBackend) pathConfigWrite(
+	ctx context.Context,
+	req *logical.Request,
+	data *framework.FieldData,
+) (*logical.Response, error) {
+	config := &backendConfig{
+		APIEnvironment: data.Get(configAPIEnvironment).(string),
+		RootAPIKey:     data.Get(configRootAPIKey).(string),
+		RootAPISecret:  data.Get(configRootAPISecret).(string),
+		Zone:           data.Get(configZone).(string),
+	}
 
-	if v, ok := data.GetOk(configKeyAPIEndpoint); ok {
-		config.APIEndpoint = v.(string)
-	}
-	if v, ok := data.GetOk(configKeyRootAPIKey); ok {
-		config.RootAPIKey = v.(string)
-	}
-	if v, ok := data.GetOk(configKeyRootAPISecret); ok {
-		config.RootAPISecret = v.(string)
+	if v, ok := data.GetOk(configAPIEnvironment); ok {
+		config.APIEnvironment = v.(string)
 	}
 
 	if config.RootAPIKey == "" || config.RootAPISecret == "" {
 		return nil, errMissingAPICredentials
+	}
+
+	if config.Zone == "" {
+		return nil, errMissingZone
 	}
 
 	entry, err := logical.StorageEntryJSON(configRootStoragePath, config)
@@ -132,7 +150,11 @@ func (b *exoscaleBackend) pathConfigWrite(ctx context.Context, req *logical.Requ
 		return nil, err
 	}
 
-	b.exo = egoscale.NewClient(config.APIEndpoint, config.RootAPIKey, config.RootAPISecret)
+	exo, err := egoscale.NewClient(config.RootAPIKey, config.RootAPISecret)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize Exoscale client: %w", err)
+	}
+	b.exo = exo
 
 	res := &logical.Response{}
 	res.AddWarning("Read access to this endpoint should be controlled via ACLs as " +
@@ -142,7 +164,8 @@ func (b *exoscaleBackend) pathConfigWrite(ctx context.Context, req *logical.Requ
 }
 
 type backendConfig struct {
-	APIEndpoint   string `json:"api_endpoint"`
-	RootAPIKey    string `json:"root_api_key"`
-	RootAPISecret string `json:"root_api_secret"`
+	APIEnvironment string `json:"api_environment"`
+	RootAPIKey     string `json:"root_api_key"`
+	RootAPISecret  string `json:"root_api_secret"`
+	Zone           string `json:"zone"`
 }

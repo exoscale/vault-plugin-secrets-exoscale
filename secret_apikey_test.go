@@ -2,72 +2,45 @@ package exoscale
 
 import (
 	"context"
-	"net/http"
 
-	"github.com/exoscale/egoscale"
+	egoscale "github.com/exoscale/egoscale/v2"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/jarcoal/httpmock"
+	"github.com/stretchr/testify/mock"
 )
 
-func (ts *backendTestSuite) TestSecretAPIKeyRevoke() {
-	var testIAMKeyName string
+func (ts *testSuite) TestSecretAPIKeyRevoke() {
+	var revoked bool
 
-	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{Operations: testRoleOperations})
-
-	httpmock.RegisterResponder("GET",
-		"=~/v1.*command=createApiKey.*",
-		func(req *http.Request) (*http.Response, error) {
-			testIAMKeyName = req.URL.Query().Get("name")
-			resp, err := httpmock.NewJsonResponse(http.StatusOK, struct {
-				ApiKey egoscale.APIKey `json:"createapikeyresponse"`
-			}{
-				egoscale.APIKey{
-					Type:       "restricted",
-					Name:       testIAMKeyName,
-					Key:        testIAMKey,
-					Secret:     testIAMSecret,
-					Operations: testRoleOperations,
-				},
-			})
-
-			ts.Require().NoError(err)
-			return resp, nil
-		})
-
-	res, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
-		Storage:     ts.storage,
-		Operation:   logical.ReadOperation,
-		Path:        apiKeyPathPrefix + testRoleName,
-		DisplayName: "test",
+	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
+		Operations: testRoleOperations,
+		Tags:       testRoleTags,
 	})
-	if err != nil {
-		ts.FailNow("request failed", err)
+
+	testSecret := &logical.Secret{
+		InternalData: map[string]interface{}{
+			"api_key":     testIAMAccessKeyKey,
+			"secret_type": SecretTypeAPIKey,
+		},
+		LeaseID: ts.randomID(),
 	}
-	ts.Require().NoError(err)
 
-	httpmock.RegisterResponder("GET",
-		"=~/v1.*command=revokeApiKey.*",
-		func(req *http.Request) (*http.Response, error) {
-			ts.Require().Equal(testIAMKey, req.URL.Query().Get("key"))
+	ts.backend.(*exoscaleBackend).exo.(*exoscaleClientMock).
+		On("RevokeIAMAccessKey", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			ts.Require().Equal(&egoscale.IAMAccessKey{Key: &testIAMAccessKeyKey}, args.Get(2))
+			revoked = true
+		}).
+		Return(nil)
 
-			resp, err := httpmock.NewJsonResponse(http.StatusOK, struct {
-				RevokeApiKeyResponse egoscale.RevokeAPIKeyResponse `json:"revokeapikeyresponse"`
-			}{
-				egoscale.RevokeAPIKeyResponse{Success: true},
-			})
-
-			ts.Require().NoError(err)
-			return resp, nil
-		})
-
-	_, err = ts.backend.HandleRequest(context.Background(), &logical.Request{
+	_, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
 		Storage:   ts.storage,
 		Operation: logical.RevokeOperation,
-		Path:      res.Secret.LeaseID,
-		Secret:    res.Secret,
+		Path:      testSecret.LeaseID,
+		Secret:    testSecret,
 	})
 	if err != nil {
 		ts.FailNow("request failed", err)
 	}
 	ts.Require().NoError(err)
+	ts.Require().True(revoked)
 }
