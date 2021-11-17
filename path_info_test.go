@@ -8,7 +8,7 @@ import (
 	"github.com/exoscale/vault-plugin-secrets-exoscale/version"
 )
 
-func (ts *backendTestSuite) TestPathInfoRead() {
+func (ts *testSuite) TestPathInfoRead() {
 	res, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
 		Storage:   ts.storage,
 		Operation: logical.ReadOperation,

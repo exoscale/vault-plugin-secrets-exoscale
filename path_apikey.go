@@ -2,14 +2,13 @@ package exoscale
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/exoscale/egoscale"
+	egoscale "github.com/exoscale/egoscale/v2"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/pkg/errors"
 )
 
 const apiKeyPathPrefix = "apikey/"
@@ -45,17 +44,25 @@ func pathAPIKey(b *exoscaleBackend) *framework.Path {
 	}
 }
 
-func (b *exoscaleBackend) createAPIKey(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) createAPIKey(
+	ctx context.Context,
+	req *logical.Request,
+	data *framework.FieldData,
+) (*logical.Response, error) {
 	if b.exo == nil {
 		return nil, errors.New("backend is not configured")
+	}
+
+	config, err := b.config(ctx, req.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve backend configuration: %w", err)
 	}
 
 	roleName := data.Get("role").(string)
 
 	role, err := b.roleConfig(ctx, req.Storage, roleName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error retrieving role %q", roleName)
+		return nil, fmt.Errorf("error retrieving role %q: %w", roleName, err)
 	} else if role == nil {
 		return logical.ErrorResponse(fmt.Sprintf("role %q not found", roleName)), nil
 	}
@@ -73,24 +80,35 @@ func (b *exoscaleBackend) createAPIKey(ctx context.Context, req *logical.Request
 		lc = role.LeaseConfig
 	}
 
-	apiRes, err := b.exo.RequestWithContext(ctx, &egoscale.CreateAPIKey{
-		Name:       fmt.Sprintf("vault-%s-%s-%d", roleName, req.DisplayName, time.Now().UnixNano()),
-		Operations: strings.Join(role.Operations, ","),
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create a new API key")
+	opts := make([]egoscale.CreateIAMAccessKeyOpt, 0)
+
+	if len(role.Operations) > 0 {
+		opts = append(opts, egoscale.CreateIAMAccessKeyWithOperations(role.Operations))
 	}
-	apiKey := apiRes.(*egoscale.APIKey)
+
+	if len(role.Tags) > 0 {
+		opts = append(opts, egoscale.CreateIAMAccessKeyWithTags(role.Tags))
+	}
+
+	iamAPIKey, err := b.exo.CreateIAMAccessKey(
+		ctx,
+		config.Zone,
+		fmt.Sprintf("vault-%s-%s-%d", roleName, req.DisplayName, time.Now().UnixNano()),
+		opts...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create a new API key: %w", err)
+	}
 
 	res := b.Secret(SecretTypeAPIKey).Response(map[string]interface{}{
 		// Information returned to the requester
-		"name":       apiKey.Name,
-		"api_key":    apiKey.Key,
-		"api_secret": apiKey.Secret,
+		"name":       *iamAPIKey.Name,
+		"api_key":    *iamAPIKey.Key,
+		"api_secret": *iamAPIKey.Secret,
 	},
 		// Information for internal use (e.g. to revoke the key later on)
 		map[string]interface{}{
-			"api_key": apiKey.Key,
+			"api_key": *iamAPIKey.Key,
 		})
 	res.Secret.TTL = lc.TTL
 	res.Secret.MaxTTL = lc.MaxTTL

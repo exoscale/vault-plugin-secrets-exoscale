@@ -30,8 +30,11 @@ func pathInfo(b *exoscaleBackend) *framework.Path {
 	}
 }
 
-func (b *exoscaleBackend) pathInfoRead(_ context.Context, _ *logical.Request,
-	_ *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) pathInfoRead(
+	_ context.Context,
+	_ *logical.Request,
+	_ *framework.FieldData,
+) (*logical.Response, error) {
 	return &logical.Response{
 		Data: map[string]interface{}{
 			"commit":  version.Commit,

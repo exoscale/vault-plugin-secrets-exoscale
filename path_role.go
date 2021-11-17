@@ -2,11 +2,12 @@ package exoscale
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/pkg/errors"
 )
 
 const roleStoragePathPrefix = "role/"
@@ -24,8 +25,8 @@ key secrets with Vault.
 
 Roles are strictly Vault-local, there is no such concept in the Exoscale IAM
 service: when creating a role, you can optionally specify a list of API
-operations that Vault-generated API keys will be restricted to when
-referencing this role. If no operations are specified during the role
+operations/tags that Vault-generated API keys will be restricted to when
+referencing this role. If no operations/tags are specified during the role
 creation, resulting API keys based on this role will be unrestricted.
 
 Optionally, it is possible to specify lease configuration settings specific to
@@ -58,10 +59,15 @@ func pathRole(b *exoscaleBackend) *framework.Path {
 			"name": {
 				Type:        framework.TypeString,
 				Description: "Name of the role",
+				Required:    true,
 			},
 			"operations": {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Comma-separated list of API operations to restrict API keys to",
+			},
+			"tags": {
+				Type:        framework.TypeCommaStringSlice,
+				Description: "Comma-separated list of API tags to restrict API keys to",
 			},
 			"ttl": {
 				Type:        framework.TypeDurationSecond,
@@ -94,7 +100,7 @@ func (b *exoscaleBackend) roleConfig(ctx context.Context, storage logical.Storag
 
 	entry, err := storage.Get(ctx, roleStoragePathPrefix+name)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error retrieving role %q", name)
+		return nil, fmt.Errorf("unable to retrieve role %q: %w", name, err)
 	}
 	if entry == nil {
 		return nil, nil
@@ -107,8 +113,11 @@ func (b *exoscaleBackend) roleConfig(ctx context.Context, storage logical.Storag
 	return &role, nil
 }
 
-func (b *exoscaleBackend) listRoles(ctx context.Context, req *logical.Request,
-	_ *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) listRoles(
+	ctx context.Context,
+	req *logical.Request,
+	_ *framework.FieldData,
+) (*logical.Response, error) {
 	roles, err := req.Storage.List(ctx, roleStoragePathPrefix)
 	if err != nil {
 		return nil, err
@@ -117,8 +126,11 @@ func (b *exoscaleBackend) listRoles(ctx context.Context, req *logical.Request,
 	return logical.ListResponse(roles), nil
 }
 
-func (b *exoscaleBackend) readRole(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) readRole(
+	ctx context.Context,
+	req *logical.Request,
+	data *framework.FieldData,
+) (*logical.Response, error) {
 	name := data.Get("name").(string)
 
 	role, err := b.roleConfig(ctx, req.Storage, name)
@@ -132,6 +144,7 @@ func (b *exoscaleBackend) readRole(ctx context.Context, req *logical.Request,
 	res := &logical.Response{
 		Data: map[string]interface{}{
 			"operations": role.Operations,
+			"tags":       role.Tags,
 		},
 	}
 
@@ -143,8 +156,11 @@ func (b *exoscaleBackend) readRole(ctx context.Context, req *logical.Request,
 	return res, nil
 }
 
-func (b *exoscaleBackend) writeRole(ctx context.Context, req *logical.Request,
-	data *framework.FieldData) (*logical.Response, error) {
+func (b *exoscaleBackend) writeRole(
+	ctx context.Context,
+	req *logical.Request,
+	data *framework.FieldData,
+) (*logical.Response, error) {
 	name := data.Get("name").(string)
 
 	role, err := b.roleConfig(ctx, req.Storage, name)
@@ -158,6 +174,11 @@ func (b *exoscaleBackend) writeRole(ctx context.Context, req *logical.Request,
 	operations, ok := data.GetOk("operations")
 	if ok {
 		role.Operations = operations.([]string)
+	}
+
+	tags, ok := data.GetOk("tags")
+	if ok {
+		role.Tags = tags.([]string)
 	}
 
 	ttl, hasTTL := data.GetOk("ttl")
@@ -200,5 +221,6 @@ func (b *exoscaleBackend) deleteRole(ctx context.Context, req *logical.Request,
 
 type backendRole struct {
 	Operations  []string     `json:"operations"`
+	Tags        []string     `json:"tags"`
 	LeaseConfig *leaseConfig `json:"lease_config,omitempty"`
 }

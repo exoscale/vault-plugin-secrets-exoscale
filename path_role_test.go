@@ -9,15 +9,17 @@ import (
 var (
 	testRoleName       = "read-only"
 	testRoleOperations = []string{
-		"compute/listServiceOfferings",
-		"compute/listTemplates",
-		"compute/listZones",
+		"list-instance-types",
+		"list-templates",
+		"list-zones",
 	}
+	testRoleTags = []string{"read"}
 )
 
-func (ts *backendTestSuite) TestPathListRoles() {
+func (ts *testSuite) TestPathListRoles() {
 	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
 		Operations: testRoleOperations,
+		Tags:       testRoleTags,
 	})
 
 	entries, err := ts.storage.List(context.Background(), roleStoragePathPrefix)
@@ -27,7 +29,7 @@ func (ts *backendTestSuite) TestPathListRoles() {
 	ts.Require().Len(entries, 1)
 }
 
-func (ts *backendTestSuite) TestPathRoleWrite() {
+func (ts *testSuite) TestPathRoleWrite() {
 	var actualRoleConfig backendRole
 
 	_, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
@@ -37,6 +39,7 @@ func (ts *backendTestSuite) TestPathRoleWrite() {
 		Data: map[string]interface{}{
 			"name":       testRoleName,
 			"operations": testRoleOperations,
+			"tags":       testRoleTags,
 			"ttl":        testConfigLeaseTTL,
 			"max_ttl":    testConfigLeaseMaxTTL,
 		},
@@ -55,6 +58,7 @@ func (ts *backendTestSuite) TestPathRoleWrite() {
 
 	ts.Require().Equal(backendRole{
 		Operations: testRoleOperations,
+		Tags:       testRoleTags,
 		LeaseConfig: &leaseConfig{
 			TTL:    testConfigLeaseTTL,
 			MaxTTL: testConfigLeaseMaxTTL,
@@ -62,9 +66,10 @@ func (ts *backendTestSuite) TestPathRoleWrite() {
 	}, actualRoleConfig)
 }
 
-func (ts *backendTestSuite) TestPathRoleRead() {
+func (ts *testSuite) TestPathRoleRead() {
 	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
 		Operations: testRoleOperations,
+		Tags:       testRoleTags,
 	})
 
 	res, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
@@ -77,11 +82,13 @@ func (ts *backendTestSuite) TestPathRoleRead() {
 	}
 
 	ts.Require().Equal(testRoleOperations, res.Data["operations"].([]string))
+	ts.Require().Equal(testRoleTags, res.Data["tags"].([]string))
 }
 
-func (ts *backendTestSuite) TestPathRoleDelete() {
+func (ts *testSuite) TestPathRoleDelete() {
 	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
 		Operations: testRoleOperations,
+		Tags:       testRoleTags,
 	})
 
 	if _, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
