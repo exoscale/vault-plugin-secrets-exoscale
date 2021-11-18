@@ -6,6 +6,7 @@ builds:
   - GO_PKG=github.com/exoscale/vault-plugin-secrets-exoscale
   flags:
     - -mod=vendor
+    - -trimpath
   ldflags:
     - -s -w -X {{.Env.GO_PKG}}/version.Version={{.Version}} -X {{.Env.GO_PKG}}/version.Commit={{.ShortCommit}}
   goos:
@@ -27,7 +28,6 @@ snapshot:
   name_template: "{{ .Tag }}-snapshot"
 
 release:
-  draft: true
   github:
     owner: exoscale
     name: vault-plugin-secrets-exoscale
