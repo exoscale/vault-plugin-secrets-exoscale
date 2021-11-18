@@ -2,6 +2,7 @@ package exoscale
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -13,12 +14,22 @@ var (
 		"list-templates",
 		"list-zones",
 	}
+	testRoleResourceDomain = "sos"
+	testRoleResourceName   = "test"
+	testRoleResourceType   = "bucket"
+	testRoleResources      = []string{fmt.Sprintf(
+		"%s/%s:%s",
+		testRoleResourceDomain,
+		testRoleResourceType,
+		testRoleResourceName,
+	)}
 	testRoleTags = []string{"read"}
 )
 
 func (ts *testSuite) TestPathListRoles() {
 	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
 		Operations: testRoleOperations,
+		Resources:  testRoleResources,
 		Tags:       testRoleTags,
 	})
 
@@ -37,11 +48,12 @@ func (ts *testSuite) TestPathRoleWrite() {
 		Operation: logical.CreateOperation,
 		Path:      roleStoragePathPrefix + testRoleName,
 		Data: map[string]interface{}{
-			"name":       testRoleName,
-			"operations": testRoleOperations,
-			"tags":       testRoleTags,
-			"ttl":        testConfigLeaseTTL,
-			"max_ttl":    testConfigLeaseMaxTTL,
+			configRoleName:       testRoleName,
+			configRoleOperations: testRoleOperations,
+			configRoleResources:  testRoleResources,
+			configRoleTags:       testRoleTags,
+			configRoleTTL:        testConfigLeaseTTL,
+			configRoleMaxTTL:     testConfigLeaseMaxTTL,
 		},
 	})
 	if err != nil {
@@ -58,6 +70,7 @@ func (ts *testSuite) TestPathRoleWrite() {
 
 	ts.Require().Equal(backendRole{
 		Operations: testRoleOperations,
+		Resources:  testRoleResources,
 		Tags:       testRoleTags,
 		LeaseConfig: &leaseConfig{
 			TTL:    testConfigLeaseTTL,
@@ -69,6 +82,7 @@ func (ts *testSuite) TestPathRoleWrite() {
 func (ts *testSuite) TestPathRoleRead() {
 	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
 		Operations: testRoleOperations,
+		Resources:  testRoleResources,
 		Tags:       testRoleTags,
 	})
 
@@ -81,13 +95,15 @@ func (ts *testSuite) TestPathRoleRead() {
 		ts.FailNow("request failed", err)
 	}
 
-	ts.Require().Equal(testRoleOperations, res.Data["operations"].([]string))
-	ts.Require().Equal(testRoleTags, res.Data["tags"].([]string))
+	ts.Require().Equal(testRoleOperations, res.Data[configRoleOperations].([]string))
+	ts.Require().Equal(testRoleResources, res.Data[configRoleResources].([]string))
+	ts.Require().Equal(testRoleTags, res.Data[configRoleTags].([]string))
 }
 
 func (ts *testSuite) TestPathRoleDelete() {
 	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
 		Operations: testRoleOperations,
+		Resources:  testRoleResources,
 		Tags:       testRoleTags,
 	})
 

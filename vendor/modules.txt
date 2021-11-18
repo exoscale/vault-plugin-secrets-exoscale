@@ -9,7 +9,7 @@ github.com/deepmap/oapi-codegen/pkg/runtime
 github.com/deepmap/oapi-codegen/pkg/types
 # github.com/evanphx/json-patch/v5 v5.5.0
 github.com/evanphx/json-patch/v5
-# github.com/exoscale/egoscale v0.82.0
+# github.com/exoscale/egoscale v0.83.0
 ## explicit
 github.com/exoscale/egoscale/v2
 github.com/exoscale/egoscale/v2/api

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	egoscale "github.com/exoscale/egoscale/v2"
@@ -11,7 +12,13 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-const apiKeyPathPrefix = "apikey/"
+const (
+	apiKeyPathPrefix = "apikey/"
+
+	apiKeySecretDataName      = "name"
+	apiKeySecretDataAPIKey    = "api_key"
+	apiKeySecretDataAPISecret = "api_secret"
+)
 
 var (
 	pathAPIKeyHelpSyn  = "Issue new Exoscale API key/secret credentials"
@@ -86,6 +93,18 @@ func (b *exoscaleBackend) createAPIKey(
 		opts = append(opts, egoscale.CreateIAMAccessKeyWithOperations(role.Operations))
 	}
 
+	if len(role.Resources) > 0 {
+		resources := make([]egoscale.IAMAccessKeyResource, len(role.Resources))
+		for i, rs := range role.Resources {
+			r, err := parseIAMAccessKeyResource(rs)
+			if err != nil {
+				return logical.ErrorResponse(fmt.Sprintf("invalid API resource %q", rs)), nil
+			}
+			resources[i] = *r
+		}
+		opts = append(opts, egoscale.CreateIAMAccessKeyWithResources(resources))
+	}
+
 	if len(role.Tags) > 0 {
 		opts = append(opts, egoscale.CreateIAMAccessKeyWithTags(role.Tags))
 	}
@@ -102,16 +121,43 @@ func (b *exoscaleBackend) createAPIKey(
 
 	res := b.Secret(SecretTypeAPIKey).Response(map[string]interface{}{
 		// Information returned to the requester
-		"name":       *iamAPIKey.Name,
-		"api_key":    *iamAPIKey.Key,
-		"api_secret": *iamAPIKey.Secret,
+		apiKeySecretDataName:      *iamAPIKey.Name,
+		apiKeySecretDataAPIKey:    *iamAPIKey.Key,
+		apiKeySecretDataAPISecret: *iamAPIKey.Secret,
 	},
 		// Information for internal use (e.g. to revoke the key later on)
 		map[string]interface{}{
-			"api_key": *iamAPIKey.Key,
+			apiKeySecretDataAPIKey: *iamAPIKey.Key,
 		})
 	res.Secret.TTL = lc.TTL
 	res.Secret.MaxTTL = lc.MaxTTL
 
 	return res, nil
+}
+
+// parseIAMAccessKeyResource parses a string-encoded IAM access key resource formatted such as
+// DOMAIN/TYPE:NAME and deserializes it into an egoscale.IAMAccessKeyResource struct.
+func parseIAMAccessKeyResource(v string) (*egoscale.IAMAccessKeyResource, error) {
+	var iamAccessKeyResource egoscale.IAMAccessKeyResource
+
+	parts := strings.SplitN(v, ":", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid format")
+	}
+	iamAccessKeyResource.ResourceName = parts[1]
+
+	parts = strings.SplitN(parts[0], "/", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid format")
+	}
+	iamAccessKeyResource.Domain = parts[0]
+	iamAccessKeyResource.ResourceType = parts[1]
+
+	if iamAccessKeyResource.Domain == "" ||
+		iamAccessKeyResource.ResourceType == "" ||
+		iamAccessKeyResource.ResourceName == "" {
+		return nil, fmt.Errorf("invalid format")
+	}
+
+	return &iamAccessKeyResource, nil
 }

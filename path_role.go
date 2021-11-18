@@ -10,7 +10,23 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-const roleStoragePathPrefix = "role/"
+type backendRole struct {
+	Operations  []string     `json:"operations"`
+	Resources   []string     `json:"resources"`
+	Tags        []string     `json:"tags"`
+	LeaseConfig *leaseConfig `json:"lease_config,omitempty"`
+}
+
+const (
+	roleStoragePathPrefix = "role/"
+
+	configRoleName       = "name"
+	configRoleOperations = "operations"
+	configRoleResources  = "resources"
+	configRoleTags       = "tags"
+	configRoleTTL        = "ttl"
+	configRoleMaxTTL     = "max_ttl"
+)
 
 var (
 	pathListRolesHelpSyn  = "List the configured backend roles"
@@ -31,6 +47,20 @@ creation, resulting API keys based on this role will be unrestricted.
 
 Optionally, it is possible to specify lease configuration settings specific to
 a role, which if set will override system or backend-level lease values.
+
+Examples:
+
+* A read-only role:
+
+    vault write exoscale/role/read-only tags=read
+
+
+* An object storage dedicated role restricted to the "vault-example" bucket:
+
+    vault write exoscale/role/sos-vault-example \
+        tags=sos \
+        resources=sos/bucket:vault-example
+
 
 Note: if the Exoscale root API key configured in the backend is itself
 restricted, you will not be able to specify API operations that the root API
@@ -56,24 +86,29 @@ func pathRole(b *exoscaleBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: "role/" + framework.GenericNameRegex("name"),
 		Fields: map[string]*framework.FieldSchema{
-			"name": {
+			configRoleName: {
 				Type:        framework.TypeString,
 				Description: "Name of the role",
 				Required:    true,
 			},
-			"operations": {
+			configRoleOperations: {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Comma-separated list of API operations to restrict API keys to",
 			},
-			"tags": {
+			configRoleResources: {
+				Type: framework.TypeCommaStringSlice,
+				Description: "Comma-separated list of API resources to restrict API keys to " +
+					" (format: DOMAIN/TYPE=NAME, e.g. \"sos/bucket:my-bucket\")",
+			},
+			configRoleTags: {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Comma-separated list of API tags to restrict API keys to",
 			},
-			"ttl": {
+			configRoleTTL: {
 				Type:        framework.TypeDurationSecond,
 				Description: "Duration of issued API key secrets",
 			},
-			"max_ttl": {
+			configRoleMaxTTL: {
 				Type:        framework.TypeDurationSecond,
 				Description: `Duration after which the issued API key secrets are not allowed to be renewed`,
 			},
@@ -131,7 +166,7 @@ func (b *exoscaleBackend) readRole(
 	req *logical.Request,
 	data *framework.FieldData,
 ) (*logical.Response, error) {
-	name := data.Get("name").(string)
+	name := data.Get(configRoleName).(string)
 
 	role, err := b.roleConfig(ctx, req.Storage, name)
 	if err != nil {
@@ -143,14 +178,15 @@ func (b *exoscaleBackend) readRole(
 
 	res := &logical.Response{
 		Data: map[string]interface{}{
-			"operations": role.Operations,
-			"tags":       role.Tags,
+			configRoleOperations: role.Operations,
+			configRoleResources:  role.Resources,
+			configRoleTags:       role.Tags,
 		},
 	}
 
 	if role.LeaseConfig != nil {
-		res.Data["ttl"] = int64(role.LeaseConfig.TTL.Seconds())
-		res.Data["max_ttl"] = int64(role.LeaseConfig.MaxTTL.Seconds())
+		res.Data[configRoleTTL] = int64(role.LeaseConfig.TTL.Seconds())
+		res.Data[configRoleMaxTTL] = int64(role.LeaseConfig.MaxTTL.Seconds())
 	}
 
 	return res, nil
@@ -161,7 +197,7 @@ func (b *exoscaleBackend) writeRole(
 	req *logical.Request,
 	data *framework.FieldData,
 ) (*logical.Response, error) {
-	name := data.Get("name").(string)
+	name := data.Get(configRoleName).(string)
 
 	role, err := b.roleConfig(ctx, req.Storage, name)
 	if err != nil {
@@ -171,24 +207,42 @@ func (b *exoscaleBackend) writeRole(
 		role = new(backendRole)
 	}
 
-	operations, ok := data.GetOk("operations")
+	operations, ok := data.GetOk(configRoleOperations)
 	if ok {
 		role.Operations = operations.([]string)
 	}
 
-	tags, ok := data.GetOk("tags")
+	resources, ok := data.GetOk(configRoleResources)
+	if ok {
+		for _, r := range resources.([]string) {
+			if _, err := parseIAMAccessKeyResource(r); err != nil {
+				return logical.ErrorResponse(fmt.Sprintf("invalid API resource %q", r)), nil
+			}
+		}
+		role.Resources = resources.([]string)
+	}
+
+	tags, ok := data.GetOk(configRoleTags)
 	if ok {
 		role.Tags = tags.([]string)
 	}
 
-	ttl, hasTTL := data.GetOk("ttl")
-	maxTTL, hasMaxTTL := data.GetOk("max_ttl")
+	ttl, hasTTL := data.GetOk(configRoleTTL)
+	maxTTL, hasMaxTTL := data.GetOk(configRoleMaxTTL)
 	if hasTTL || hasMaxTTL {
 		if !hasTTL || !hasMaxTTL {
-			return logical.ErrorResponse(`"ttl" and "max_ttl" must both be specified`), nil
+			return logical.ErrorResponse(fmt.Sprintf(
+				`"%s" and "%s" must both be specified`,
+				configRoleTTL,
+				configRoleMaxTTL,
+			)), nil
 		}
 		if ttl.(int) == 0 || maxTTL.(int) == 0 {
-			return logical.ErrorResponse(`"ttl" and "max_ttl" value must be greater than 0`), nil
+			return logical.ErrorResponse(fmt.Sprintf(
+				`"%s" and "%s" value must be greater than 0`,
+				configRoleTTL,
+				configRoleMaxTTL,
+			)), nil
 		}
 
 		role.LeaseConfig = &leaseConfig{
@@ -211,16 +265,10 @@ func (b *exoscaleBackend) writeRole(
 
 func (b *exoscaleBackend) deleteRole(ctx context.Context, req *logical.Request,
 	data *framework.FieldData) (*logical.Response, error) {
-	name := data.Get("name").(string)
+	name := data.Get(configRoleName).(string)
 	if err := req.Storage.Delete(ctx, roleStoragePathPrefix+name); err != nil {
 		return nil, err
 	}
 
 	return nil, nil
-}
-
-type backendRole struct {
-	Operations  []string     `json:"operations"`
-	Tags        []string     `json:"tags"`
-	LeaseConfig *leaseConfig `json:"lease_config,omitempty"`
 }
