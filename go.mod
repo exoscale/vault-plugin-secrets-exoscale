@@ -3,7 +3,7 @@ module github.com/exoscale/vault-plugin-secrets-exoscale
 go 1.16
 
 require (
-	github.com/exoscale/egoscale v0.82.0
+	github.com/exoscale/egoscale v0.83.0
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/hashicorp/go-retryablehttp v0.6.6 // indirect
 	github.com/hashicorp/vault/api v1.0.5-0.20200519221902-385fac77e20f
