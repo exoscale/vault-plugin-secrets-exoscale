@@ -8,6 +8,7 @@ import (
 	"time"
 
 	egoscale "github.com/exoscale/egoscale/v2"
+	exoapi "github.com/exoscale/egoscale/v2/api"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -110,7 +111,7 @@ func (b *exoscaleBackend) createAPIKey(
 	}
 
 	iamAPIKey, err := b.exo.CreateIAMAccessKey(
-		ctx,
+		exoapi.WithEndpoint(ctx, exoapi.NewReqEndpoint(config.APIEnvironment, config.Zone)),
 		config.Zone,
 		fmt.Sprintf("vault-%s-%s-%d", roleName, req.DisplayName, time.Now().UnixNano()),
 		opts...,
