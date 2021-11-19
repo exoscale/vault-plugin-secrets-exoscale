@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	egoscale "github.com/exoscale/egoscale/v2"
+	exoapi "github.com/exoscale/egoscale/v2/api"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -75,7 +76,11 @@ func (b *exoscaleBackend) secretAPIKeyRevoke(
 	}
 	key := k.(string)
 
-	if err = b.exo.RevokeIAMAccessKey(ctx, config.Zone, &egoscale.IAMAccessKey{Key: &key}); err != nil {
+	if err = b.exo.RevokeIAMAccessKey(
+		exoapi.WithEndpoint(ctx, exoapi.NewReqEndpoint(config.APIEnvironment, config.Zone)),
+		config.Zone,
+		&egoscale.IAMAccessKey{Key: &key},
+	); err != nil {
 		return nil, fmt.Errorf("unable to revoke the API key: %w", err)
 	}
 
