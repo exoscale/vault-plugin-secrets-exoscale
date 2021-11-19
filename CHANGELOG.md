@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+### Bug Fixes
+
+* Honor api_environment backend configuration property
+
+
 ## 0.2.0
 
 ### Changes
