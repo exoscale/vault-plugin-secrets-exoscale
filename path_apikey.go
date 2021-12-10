@@ -129,6 +129,7 @@ func (b *exoscaleBackend) createAPIKey(
 		// Information for internal use (e.g. to revoke the key later on)
 		map[string]interface{}{
 			apiKeySecretDataAPIKey: *iamAPIKey.Key,
+			"role":                 roleName,
 		})
 	res.Secret.TTL = lc.TTL
 	res.Secret.MaxTTL = lc.MaxTTL
