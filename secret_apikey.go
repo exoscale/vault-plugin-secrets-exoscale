@@ -41,18 +41,17 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 	req *logical.Request,
 	_ *framework.FieldData,
 ) (*logical.Response, error) {
-	roleRaw, ok := req.Secret.InternalData["role"]
+	roleName, ok := req.Secret.InternalData["role"]
 	if !ok {
 		return nil, fmt.Errorf("secret is missing the role field in its internal data")
 	}
 
-	role := roleRaw.(string)
-	roleEntry, err := b.roleConfig(ctx, req.Storage, role)
+	role, err := b.roleConfig(ctx, req.Storage, roleName.(string))
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving role: %w", err)
 	}
-	if roleEntry == nil {
-		return nil, errors.New("error retrieving role: role is nil")
+	if role == nil {
+		return logical.ErrorResponse(fmt.Sprintf("role %q not found", roleName)), nil
 	}
 
 	lc, err := b.leaseConfig(ctx, req.Storage)
@@ -63,8 +62,8 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 		lc = new(leaseConfig)
 	}
 
-	if roleEntry.LeaseConfig != nil {
-		lc = roleEntry.LeaseConfig
+	if role.LeaseConfig != nil {
+		lc = role.LeaseConfig
 	}
 
 	res := &logical.Response{Secret: req.Secret}
