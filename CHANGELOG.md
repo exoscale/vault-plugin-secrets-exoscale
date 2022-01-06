@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+### Bug Fixes
+* Use ttl and max_ttl from the role when renewing a lease
+
 ## 0.2.1
 
 ### Bug Fixes
