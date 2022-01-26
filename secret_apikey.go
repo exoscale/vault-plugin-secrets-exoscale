@@ -66,8 +66,13 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 		lc = role.LeaseConfig
 	}
 
+	ttl, _, err := framework.CalculateTTL(b.System(), req.Secret.Increment, role.LeaseConfig.TTL, 0, role.LeaseConfig.MaxTTL, 0, req.Secret.IssueTime)
+	if err != nil {
+		return nil, err
+	}
+
 	res := &logical.Response{Secret: req.Secret}
-	res.Secret.TTL = lc.TTL
+	res.Secret.TTL = ttl
 	res.Secret.MaxTTL = lc.MaxTTL
 
 	return res, nil
