@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	egoscale "github.com/exoscale/egoscale/v2"
@@ -152,7 +153,13 @@ func (b *exoscaleBackend) secretAPIKeyRevoke(
 	key := k.(string)
 
 	ectx := exoapi.WithEndpoint(ctx, exoapi.NewReqEndpoint(config.APIEnvironment, config.Zone))
-	if err = b.exo.RevokeIAMAccessKey(ectx, config.Zone, &egoscale.IAMAccessKey{Key: &key}); err != nil {
+
+	err = b.exo.RevokeIAMAccessKey(ectx, config.Zone, &egoscale.IAMAccessKey{Key: &key})
+
+	if err != nil && strings.HasSuffix(err.Error(), ": resource not found") {
+		b.Logger().Warn("IAM key deosn't exist anymore, cleaning up secret", "key", key, "lease_id", req.Secret.LeaseID)
+		return nil, nil
+	} else if err != nil {
 		return nil, fmt.Errorf("unable to revoke the API key: %w", err)
 	}
 
