@@ -131,10 +131,18 @@ func (b *exoscaleBackend) createAPIKey(
 			apiKeySecretDataAPIKey: *iamAPIKey.Key,
 			"role":                 roleName,
 			"expireTime":           time.Now().Add(lc.TTL),
+			"name":                 *iamAPIKey.Name,
 		})
 
 	res.Secret.TTL = lc.TTL
 	res.Secret.MaxTTL = lc.MaxTTL
+
+	b.Logger().Info("Creating IAM secret",
+		"ttl", fmt.Sprint(lc.TTL),
+		"max_ttl", fmt.Sprint(lc.MaxTTL),
+		"role", roleName,
+		"iam_key", *iamAPIKey.Key,
+		"iam_name", *iamAPIKey.Name)
 
 	return res, nil
 }

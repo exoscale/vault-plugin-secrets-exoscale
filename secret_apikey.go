@@ -55,6 +55,16 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 		return logical.ErrorResponse(fmt.Sprintf("role %q not found", roleName)), nil
 	}
 
+	iamKey, ok := req.Secret.InternalData["api_key"]
+	if !ok {
+		return nil, errors.New("'api_key' is missing from the secret's internal data")
+	}
+
+	iamName, ok := req.Secret.InternalData["name"]
+	if !ok {
+		return nil, errors.New("'name' is missing from the secret's internal data")
+	}
+
 	var leaseCfg leaseConfig
 
 	if role.LeaseConfig != nil {
@@ -94,7 +104,10 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 	if ttl == leaseCfg.TTL {
 		res.Secret.TTL = ttl
 		res.Secret.InternalData["expireTime"] = time.Now().Add(res.Secret.TTL)
-		b.Logger().Debug("Renewing", "ttl", fmt.Sprint(res.Secret.TTL), "role", roleName)
+		b.Logger().Info("Renewing",
+			"ttl", fmt.Sprint(res.Secret.TTL), "role", roleName,
+			"iam_key", iamKey,
+			"iam_name", iamName)
 	} else {
 		rawExpireTime, ok := req.Secret.InternalData["expireTime"]
 		if !ok {
@@ -107,7 +120,12 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 		}
 
 		res.Secret.TTL = time.Until(expireTime)
-		b.Logger().Debug("Not renewing because ttl would be capped by max_ttl ", "ttl", fmt.Sprint(res.Secret.TTL), "capped_ttl", fmt.Sprint(ttl), "role", roleName)
+		b.Logger().Info("Not renewing because ttl would be capped by max_ttl ",
+			"ttl", fmt.Sprint(res.Secret.TTL),
+			"capped_ttl", fmt.Sprint(ttl),
+			"role", roleName,
+			"iam_key", iamKey,
+			"iam_name", iamName)
 	}
 
 	return res, nil
