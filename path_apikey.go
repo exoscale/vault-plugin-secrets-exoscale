@@ -130,7 +130,9 @@ func (b *exoscaleBackend) createAPIKey(
 		map[string]interface{}{
 			apiKeySecretDataAPIKey: *iamAPIKey.Key,
 			"role":                 roleName,
+			"expireTime":           time.Now().Add(lc.TTL),
 		})
+
 	res.Secret.TTL = lc.TTL
 	res.Secret.MaxTTL = lc.MaxTTL
 
