@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3
+
+### Bug Fixes
+* Stop renewing if the TTL is capped by MaxTTL ([#13](https://github.com/exoscale/vault-plugin-secrets-exoscale/pull/13))
+
 ## 0.2.2
 
 ### Bug Fixes
