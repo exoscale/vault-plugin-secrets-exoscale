@@ -18,6 +18,7 @@ type Template struct {
 	Description     *string
 	Family          *string
 	ID              *string `req-for:"update,delete"`
+	Maintainer      *string
 	Name            *string `req-for:"create"`
 	PasswordEnabled *bool   `req-for:"create"`
 	SSHKeyEnabled   *bool   `req-for:"create"`
@@ -59,6 +60,7 @@ func templateFromAPI(t *oapi.Template, zone string) *Template {
 		Description:     t.Description,
 		Family:          t.Family,
 		ID:              t.Id,
+		Maintainer:      t.Maintainer,
 		Name:            t.Name,
 		PasswordEnabled: t.PasswordEnabled,
 		SSHKeyEnabled:   t.SshKeyEnabled,
@@ -93,7 +95,11 @@ func (c *Client) CopyTemplate(ctx context.Context, zone string, template *Templa
 		return nil, err
 	}
 
-	return c.GetTemplate(ctx, dstZone, *res.(*oapi.Reference).Id)
+	return c.GetTemplate(ctx, dstZone, *res.(*struct {
+		Command *string `json:"command,omitempty"`
+		Id      *string `json:"id,omitempty"` // revive:disable-line
+		Link    *string `json:"link,omitempty"`
+	}).Id)
 }
 
 // DeleteTemplate deletes a Template.
@@ -165,13 +171,16 @@ func (c *Client) RegisterTemplate(ctx context.Context, zone string, template *Te
 		apiv2.WithZone(ctx, zone),
 		oapi.RegisterTemplateJSONRequestBody{
 			BootMode:        (*oapi.RegisterTemplateJSONBodyBootMode)(template.BootMode),
+			Build:           template.Build,
 			Checksum:        *template.Checksum,
 			DefaultUser:     template.DefaultUser,
 			Description:     template.Description,
+			Maintainer:      template.Maintainer,
 			Name:            *template.Name,
 			PasswordEnabled: *template.PasswordEnabled,
 			SshKeyEnabled:   *template.SSHKeyEnabled,
 			Url:             *template.URL,
+			Version:         template.Version,
 		})
 	if err != nil {
 		return nil, err
@@ -185,7 +194,11 @@ func (c *Client) RegisterTemplate(ctx context.Context, zone string, template *Te
 		return nil, err
 	}
 
-	return c.GetTemplate(ctx, zone, *res.(*oapi.Reference).Id)
+	return c.GetTemplate(ctx, zone, *res.(*struct {
+		Command *string `json:"command,omitempty"`
+		Id      *string `json:"id,omitempty"` // revive:disable-line
+		Link    *string `json:"link,omitempty"`
+	}).Id)
 }
 
 // UpdateTemplate updates a Template.
