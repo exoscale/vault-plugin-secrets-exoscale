@@ -10,7 +10,7 @@ import (
 
 const configLeaseStoragePath = "config/lease"
 
-var (
+const (
 	pathConfigLeaseHelpSyn  = "Configure the backend-specific secrets lease parameters"
 	pathConfigLeaseHelpDesc = `
 This endpoint manages the secrets lease duration applied to generated API key
@@ -22,7 +22,7 @@ system's defaults.
 `
 )
 
-func pathConfigLease(b *exoscaleBackend) *framework.Path {
+func (b *exoscaleBackend) pathConfigLease() *framework.Path {
 	return &framework.Path{
 		Pattern: "config/lease",
 		Fields: map[string]*framework.FieldSchema{

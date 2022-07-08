@@ -15,6 +15,7 @@ type backendRole struct {
 	Resources   []string     `json:"resources"`
 	Tags        []string     `json:"tags"`
 	LeaseConfig *leaseConfig `json:"lease_config,omitempty"`
+	Renewable   bool         `json:"renewable"`
 }
 
 const (
@@ -26,9 +27,10 @@ const (
 	configRoleTags       = "tags"
 	configRoleTTL        = "ttl"
 	configRoleMaxTTL     = "max_ttl"
+	configRoleRenewable  = "renewable"
 )
 
-var (
+const (
 	pathListRolesHelpSyn  = "List the configured backend roles"
 	pathListRolesHelpDesc = `
 This endpoint returns a list of the configured backend roles.
@@ -69,7 +71,7 @@ documented on the Exoscale API website: https://api.exoscale.com/
 `
 )
 
-func pathListRoles(b *exoscaleBackend) *framework.Path {
+func (b *exoscaleBackend) pathListRoles() *framework.Path {
 	return &framework.Path{
 		Pattern: "role/?$",
 
@@ -82,7 +84,7 @@ func pathListRoles(b *exoscaleBackend) *framework.Path {
 	}
 }
 
-func pathRole(b *exoscaleBackend) *framework.Path {
+func (b *exoscaleBackend) pathRole() *framework.Path {
 	return &framework.Path{
 		Pattern: "role/" + framework.GenericNameRegex("name"),
 		Fields: map[string]*framework.FieldSchema{
@@ -112,6 +114,10 @@ func pathRole(b *exoscaleBackend) *framework.Path {
 				Type:        framework.TypeDurationSecond,
 				Description: `Duration after which the issued API key secrets are not allowed to be renewed`,
 			},
+			configRoleRenewable: {
+				Type:        framework.TypeBool,
+				Description: `Is the secret renewable?`,
+			},
 		},
 
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -127,8 +133,6 @@ func pathRole(b *exoscaleBackend) *framework.Path {
 }
 
 func (b *exoscaleBackend) roleConfig(ctx context.Context, storage logical.Storage, name string) (*backendRole, error) {
-	var role backendRole
-
 	if name == "" {
 		return nil, errors.New("invalid role name")
 	}
@@ -141,6 +145,9 @@ func (b *exoscaleBackend) roleConfig(ctx context.Context, storage logical.Storag
 		return nil, nil
 	}
 
+	role := backendRole{
+		Renewable: true, // default to true for backward compatibility
+	}
 	if err := entry.DecodeJSON(&role); err != nil {
 		return nil, err
 	}
@@ -181,6 +188,7 @@ func (b *exoscaleBackend) readRole(
 			configRoleOperations: role.Operations,
 			configRoleResources:  role.Resources,
 			configRoleTags:       role.Tags,
+			configRoleRenewable:  role.Renewable,
 		},
 	}
 
@@ -225,6 +233,12 @@ func (b *exoscaleBackend) writeRole(
 	tags, ok := data.GetOk(configRoleTags)
 	if ok {
 		role.Tags = tags.([]string)
+	}
+
+	role.Renewable = true // backward compatibility
+	renewable, ok := data.GetOk(configRoleRenewable)
+	if ok {
+		role.Renewable = renewable.(bool)
 	}
 
 	ttl, hasTTL := data.GetOk(configRoleTTL)

@@ -9,7 +9,7 @@ import (
 	"github.com/exoscale/vault-plugin-secrets-exoscale/version"
 )
 
-var (
+const (
 	pathInfoHelpSyn  = "Display information about this plugin"
 	pathInfoHelpDesc = `
 This endpoint provides information about the plugin, such as the version and
@@ -17,7 +17,7 @@ build commit.
 `
 )
 
-func pathInfo(b *exoscaleBackend) *framework.Path {
+func (b *exoscaleBackend) pathInfo() *framework.Path {
 	return &framework.Path{
 		Pattern: "info",
 

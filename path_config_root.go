@@ -41,7 +41,7 @@ information).
 	errMissingZone           = errors.New("missing zone")
 )
 
-func pathConfigRoot(b *exoscaleBackend) *framework.Path {
+func (b *exoscaleBackend) pathConfigRoot() *framework.Path {
 	return &framework.Path{
 		Pattern: "config/root",
 		Fields: map[string]*framework.FieldSchema{

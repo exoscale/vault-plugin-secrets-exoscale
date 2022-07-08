@@ -21,7 +21,7 @@ const (
 	apiKeySecretDataAPISecret = "api_secret"
 )
 
-var (
+const (
 	pathAPIKeyHelpSyn  = "Issue new Exoscale API key/secret credentials"
 	pathAPIKeyHelpDesc = `
 This endpoint dynamically generates Exoscale API key/secret credentials based
@@ -33,7 +33,7 @@ to recover an API secret after it's been returned during the secret creation.
 `
 )
 
-func pathAPIKey(b *exoscaleBackend) *framework.Path {
+func (b *exoscaleBackend) pathAPIKey() *framework.Path {
 	return &framework.Path{
 		Pattern: apiKeyPathPrefix + framework.GenericNameRegex("role"),
 		Fields: map[string]*framework.FieldSchema{
@@ -136,13 +136,15 @@ func (b *exoscaleBackend) createAPIKey(
 
 	res.Secret.TTL = lc.TTL
 	res.Secret.MaxTTL = lc.MaxTTL
+	res.Secret.Renewable = role.Renewable
 
 	b.Logger().Info("Creating IAM secret",
 		"ttl", fmt.Sprint(lc.TTL),
 		"max_ttl", fmt.Sprint(lc.MaxTTL),
 		"role", roleName,
 		"iam_key", *iamAPIKey.Key,
-		"iam_name", *iamAPIKey.Name)
+		"iam_name", *iamAPIKey.Name,
+		"renewable", res.Secret.Renewable)
 
 	return res, nil
 }

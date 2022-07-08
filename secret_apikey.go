@@ -15,7 +15,7 @@ import (
 
 const SecretTypeAPIKey = "apikey"
 
-func secretAPIKey(b *exoscaleBackend) *framework.Secret {
+func (b *exoscaleBackend) secretAPIKey() *framework.Secret {
 	return &framework.Secret{
 		Type: SecretTypeAPIKey,
 		Fields: map[string]*framework.FieldSchema{
@@ -54,6 +54,10 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 	}
 	if role == nil {
 		return logical.ErrorResponse(fmt.Sprintf("role %q not found", roleName)), nil
+	}
+
+	if !role.Renewable {
+		return logical.ErrorResponse(fmt.Sprintf("secret is not renewable role=%q", roleName)), nil
 	}
 
 	iamKey, ok := req.Secret.InternalData["api_key"]
