@@ -80,7 +80,9 @@ Note: if the Exoscale root API key configured in the backend is itself restricte
 
 ```sh
 $ vault write exoscale/role/list-only \
-	operations=list-zones,list-instance-types
+	operations=list-zones,list-instance-types \
+    renewable=true
+
 ```
 
 ###  Exoscale API Keys Secrets
