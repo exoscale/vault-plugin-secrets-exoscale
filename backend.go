@@ -11,7 +11,7 @@ import (
 	vaultsdkver "github.com/hashicorp/vault/sdk/version"
 )
 
-var backendHelp = `
+const backendHelp = `
 The Exoscale secrets backend for Vault dynamically manages Exoscale IAM API
 keys based on role-based policies.
 `
@@ -26,15 +26,13 @@ type exoscaleBackend struct {
 	*framework.Backend
 }
 
-func init() {
+func Factory(ctx context.Context, config *logical.BackendConfig) (logical.Backend, error) {
 	egoscale.UserAgent = fmt.Sprintf("Exoscale-Vault-Plugin-Secrets/%s (%s) Vault-SDK/%s %s",
 		version.Version,
 		version.Commit,
 		vaultsdkver.Version,
 		egoscale.UserAgent)
-}
 
-func Factory(ctx context.Context, config *logical.BackendConfig) (logical.Backend, error) {
 	var backend exoscaleBackend
 
 	backend.Backend = &framework.Backend{
@@ -42,16 +40,16 @@ func Factory(ctx context.Context, config *logical.BackendConfig) (logical.Backen
 		Help:        backendHelp,
 
 		Paths: []*framework.Path{
-			pathInfo(&backend),
-			pathConfigRoot(&backend),
-			pathConfigLease(&backend),
-			pathListRoles(&backend),
-			pathRole(&backend),
-			pathAPIKey(&backend),
+			backend.pathInfo(),
+			backend.pathConfigRoot(),
+			backend.pathConfigLease(),
+			backend.pathListRoles(),
+			backend.pathRole(),
+			backend.pathAPIKey(),
 		},
 
 		Secrets: []*framework.Secret{
-			secretAPIKey(&backend),
+			backend.secretAPIKey(),
 		},
 	}
 
@@ -59,6 +57,7 @@ func Factory(ctx context.Context, config *logical.BackendConfig) (logical.Backen
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve backend config from storage: %w", err)
 	}
+
 	if backendConfig != nil {
 		exo, err := egoscale.NewClient(backendConfig.RootAPIKey, backendConfig.RootAPISecret)
 		if err != nil {

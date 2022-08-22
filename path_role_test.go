@@ -76,6 +76,48 @@ func (ts *testSuite) TestPathRoleWrite() {
 			TTL:    testConfigLeaseTTL,
 			MaxTTL: testConfigLeaseMaxTTL,
 		},
+		Renewable: true,
+	}, actualRoleConfig)
+}
+
+func (ts *testSuite) TestPathRoleWriteNonRenewable() {
+	var actualRoleConfig backendRole
+
+	_, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
+		Storage:   ts.storage,
+		Operation: logical.CreateOperation,
+		Path:      roleStoragePathPrefix + testRoleName,
+		Data: map[string]interface{}{
+			configRoleName:       testRoleName,
+			configRoleOperations: testRoleOperations,
+			configRoleResources:  testRoleResources,
+			configRoleTags:       testRoleTags,
+			configRoleTTL:        testConfigLeaseTTL,
+			configRoleMaxTTL:     testConfigLeaseMaxTTL,
+			configRoleRenewable:  false,
+		},
+	})
+	if err != nil {
+		ts.FailNow("request failed", err)
+	}
+
+	entry, err := ts.storage.Get(context.Background(), roleStoragePathPrefix+testRoleName)
+	if err != nil {
+		ts.FailNow("unable to retrieve entry from storage", err)
+	}
+	if err := entry.DecodeJSON(&actualRoleConfig); err != nil {
+		ts.FailNow("unable to JSON-decode entry", err)
+	}
+
+	ts.Require().Equal(backendRole{
+		Operations: testRoleOperations,
+		Resources:  testRoleResources,
+		Tags:       testRoleTags,
+		LeaseConfig: &leaseConfig{
+			TTL:    testConfigLeaseTTL,
+			MaxTTL: testConfigLeaseMaxTTL,
+		},
+		Renewable: false,
 	}, actualRoleConfig)
 }
 

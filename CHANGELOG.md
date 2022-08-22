@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* Add option to make secret non-renewable
+
 ## 0.2.3
 
 ### Bug Fixes

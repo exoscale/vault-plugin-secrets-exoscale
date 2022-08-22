@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gofrs/uuid"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/suite"
 )
@@ -60,11 +60,11 @@ func (ts *testSuite) TearDownTest() {
 }
 
 func (ts *testSuite) randomID() string {
-	id, err := uuid.NewV4()
+	id, err := uuid.GenerateUUID()
 	if err != nil {
 		ts.T().Fatalf("unable to generate a new UUID: %s", err)
 	}
-	return id.String()
+	return id
 }
 
 func TestSuite(t *testing.T) {
