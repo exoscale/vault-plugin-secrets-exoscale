@@ -103,7 +103,7 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 	// the value is capped, reducing the grace period to an unpredictable amount
 	// of time.
 
-	// To make sure it will calulate the refresh grace period based
+	// To make sure it will calculate the refresh grace period based
 	// on a full TTL value, we extend the lease only if the TTL is
 	// not capped by max_ttl
 	if ttl == leaseCfg.TTL {
