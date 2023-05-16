@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
-	egoscale "github.com/exoscale/egoscale/v2"
-	"github.com/exoscale/egoscale/v2/oapi"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/mock"
+
+	egoscale "github.com/exoscale/egoscale/v2"
+	"github.com/exoscale/egoscale/v2/oapi"
 )
 
 var (

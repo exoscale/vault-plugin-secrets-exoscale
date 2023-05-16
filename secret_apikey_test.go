@@ -3,9 +3,10 @@ package exoscale
 import (
 	"context"
 
-	egoscale "github.com/exoscale/egoscale/v2"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/mock"
+
+	egoscale "github.com/exoscale/egoscale/v2"
 )
 
 func (ts *testSuite) TestSecretAPIKeyRevoke() {
