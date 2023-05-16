@@ -3,8 +3,9 @@ package exoscale
 import (
 	"context"
 
-	egoscale "github.com/exoscale/egoscale/v2"
 	"github.com/stretchr/testify/mock"
+
+	egoscale "github.com/exoscale/egoscale/v2"
 )
 
 type exoscaleClientMock struct {

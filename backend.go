@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	egoscale "github.com/exoscale/egoscale/v2"
-	"github.com/exoscale/vault-plugin-secrets-exoscale/version"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	vaultsdkver "github.com/hashicorp/vault/sdk/version"
+
+	egoscale "github.com/exoscale/egoscale/v2"
+	"github.com/exoscale/vault-plugin-secrets-exoscale/version"
 )
 
 const backendHelp = `

@@ -4,9 +4,10 @@ import (
 	"log"
 	"os"
 
-	exoscale "github.com/exoscale/vault-plugin-secrets-exoscale"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/plugin"
+
+	exoscale "github.com/exoscale/vault-plugin-secrets-exoscale"
 )
 
 func main() {
