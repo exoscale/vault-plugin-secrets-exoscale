@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	vaultsdkver "github.com/hashicorp/vault/sdk/version"
 
 	egoscale "github.com/exoscale/egoscale/v2"
 	"github.com/exoscale/vault-plugin-secrets-exoscale/version"
@@ -28,10 +27,9 @@ type exoscaleBackend struct {
 }
 
 func Factory(ctx context.Context, config *logical.BackendConfig) (logical.Backend, error) {
-	egoscale.UserAgent = fmt.Sprintf("Exoscale-Vault-Plugin-Secrets/%s (%s) Vault-SDK/%s %s",
+	egoscale.UserAgent = fmt.Sprintf("Exoscale-Vault-Plugin-Secrets/%s (%s) %s",
 		version.Version,
 		version.Commit,
-		vaultsdkver.Version,
 		egoscale.UserAgent)
 
 	var backend exoscaleBackend

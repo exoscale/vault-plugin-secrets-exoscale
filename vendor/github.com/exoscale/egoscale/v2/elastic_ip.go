@@ -24,11 +24,14 @@ type ElasticIPHealthcheck struct {
 
 // ElasticIP represents an Elastic IP.
 type ElasticIP struct {
-	Description *string
-	Healthcheck *ElasticIPHealthcheck
-	ID          *string `req-for:"update,delete"`
-	IPAddress   *net.IP
-	Zone        *string
+	Description   *string
+	Healthcheck   *ElasticIPHealthcheck
+	ID            *string `req-for:"update,delete"`
+	IPAddress     *net.IP
+	Labels        *map[string]string
+	Zone          *string
+	CIDR          *string
+	AddressFamily *string
 }
 
 func elasticIPFromAPI(e *oapi.ElasticIp, zone string) *ElasticIP {
@@ -58,7 +61,15 @@ func elasticIPFromAPI(e *oapi.ElasticIp, zone string) *ElasticIP {
 		}(),
 		ID:        e.Id,
 		IPAddress: &ipAddress,
-		Zone:      &zone,
+		Labels: func() (v *map[string]string) {
+			if e.Labels != nil && len(e.Labels.AdditionalProperties) > 0 {
+				v = &e.Labels.AdditionalProperties
+			}
+			return
+		}(),
+		Zone:          &zone,
+		CIDR:          e.Cidr,
+		AddressFamily: (*string)(e.Addressfamily),
 	}
 }
 
@@ -73,10 +84,16 @@ func (c *Client) CreateElasticIP(ctx context.Context, zone string, elasticIP *El
 		}
 	}
 
+	var addressFamily *oapi.CreateElasticIpJSONBodyAddressfamily
+	if elasticIP.AddressFamily != nil {
+		addressFamily = (*oapi.CreateElasticIpJSONBodyAddressfamily)(elasticIP.AddressFamily)
+	}
+
 	resp, err := c.CreateElasticIpWithResponse(
 		apiv2.WithZone(ctx, zone),
 		oapi.CreateElasticIpJSONRequestBody{
-			Description: elasticIP.Description,
+			Description:   elasticIP.Description,
+			Addressfamily: addressFamily,
 			Healthcheck: func() *oapi.ElasticIpHealthcheck {
 				if hc := elasticIP.Healthcheck; hc != nil {
 					var (
@@ -98,6 +115,12 @@ func (c *Client) CreateElasticIP(ctx context.Context, zone string, elasticIP *El
 					}
 				}
 				return nil
+			}(),
+			Labels: func() (v *oapi.Labels) {
+				if elasticIP.Labels != nil {
+					v = &oapi.Labels{AdditionalProperties: *elasticIP.Labels}
+				}
+				return
 			}(),
 		})
 	if err != nil {
@@ -231,7 +254,69 @@ func (c *Client) UpdateElasticIP(ctx context.Context, zone string, elasticIP *El
 				}
 				return nil
 			}(),
+			Labels: func() (v *oapi.Labels) {
+				if elasticIP.Labels != nil {
+					v = &oapi.Labels{AdditionalProperties: *elasticIP.Labels}
+				}
+				return
+			}(),
 		})
+	if err != nil {
+		return err
+	}
+
+	_, err = oapi.NewPoller().
+		WithTimeout(c.timeout).
+		WithInterval(c.pollInterval).
+		Poll(ctx, oapi.OperationPoller(c, zone, *resp.JSON200.Id))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetElasticIPReverseDNS returns the Reverse DNS record corresponding to the specified Elastic IP ID.
+func (c *Client) GetElasticIPReverseDNS(ctx context.Context, zone, id string) (string, error) {
+	resp, err := c.GetReverseDnsElasticIpWithResponse(apiv2.WithZone(ctx, zone), id)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.JSON200 == nil || resp.JSON200.DomainName == nil {
+		return "", apiv2.ErrNotFound
+	}
+
+	return string(*resp.JSON200.DomainName), nil
+}
+
+// DeleteElasticIPReverseDNS deletes a Reverse DNS record of a Elastic IP.
+func (c *Client) DeleteElasticIPReverseDNS(ctx context.Context, zone string, id string) error {
+	resp, err := c.DeleteReverseDnsElasticIpWithResponse(apiv2.WithZone(ctx, zone), id)
+	if err != nil {
+		return err
+	}
+
+	_, err = oapi.NewPoller().
+		WithTimeout(c.timeout).
+		WithInterval(c.pollInterval).
+		Poll(ctx, oapi.OperationPoller(c, zone, *resp.JSON200.Id))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdateElasticIPReverseDNS updates a Reverse DNS record for a ElasticIP.
+func (c *Client) UpdateElasticIPReverseDNS(ctx context.Context, zone, id, domain string) error {
+	resp, err := c.UpdateReverseDnsElasticIpWithResponse(
+		apiv2.WithZone(ctx, zone),
+		id,
+		oapi.UpdateReverseDnsElasticIpJSONRequestBody{
+			DomainName: &domain,
+		},
+	)
 	if err != nil {
 		return err
 	}
