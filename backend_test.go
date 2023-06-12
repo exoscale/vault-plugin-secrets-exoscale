@@ -31,7 +31,7 @@ func (ts *testSuite) SetupTest() {
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
 
-	backendConfigEntry, err := logical.StorageEntryJSON(configRootStoragePath, backendConfig{
+	backendConfigEntry, err := logical.StorageEntryJSON(configRootStoragePath, rootConfig{
 		APIEnvironment: testConfigAPIEnvironment,
 		RootAPIKey:     testConfigRootAPIKey,
 		RootAPISecret:  testConfigRootAPISecret,
@@ -48,7 +48,7 @@ func (ts *testSuite) SetupTest() {
 	if err != nil {
 		ts.T().Fatal(err)
 	}
-	backend.(*exoscaleBackend).exo = new(exoscaleClientMock)
+	backend.(*exoscaleBackend).exo = exoscale{egoscaleClient: new(exoscaleClientMock)}
 
 	ts.backend = backend
 	ts.storage = config.StorageView

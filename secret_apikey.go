@@ -9,9 +9,6 @@ import (
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-
-	egoscale "github.com/exoscale/egoscale/v2"
-	exoapi "github.com/exoscale/egoscale/v2/api"
 )
 
 const SecretTypeAPIKey = "apikey"
@@ -49,7 +46,7 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 		return nil, fmt.Errorf("secret is missing the role field in its internal data")
 	}
 
-	role, err := b.roleConfig(ctx, req.Storage, roleName.(string))
+	role, err := b.getRole(ctx, req.Storage, roleName.(string))
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving role: %w", err)
 	}
@@ -142,25 +139,12 @@ func (b *exoscaleBackend) secretAPIKeyRevoke(
 	req *logical.Request,
 	_ *framework.FieldData,
 ) (*logical.Response, error) {
-	if b.exo == nil {
-		return nil, errors.New("backend is not configured")
-	}
-
-	config, err := b.config(ctx, req.Storage)
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve backend configuration: %w", err)
-	}
-
-	k, ok := req.Secret.InternalData["api_key"]
+	key, ok := req.Secret.InternalData["api_key"]
 	if !ok {
 		return nil, errors.New("API key is missing from the secret")
 	}
-	key := k.(string)
 
-	ectx := exoapi.WithEndpoint(ctx, exoapi.NewReqEndpoint(config.APIEnvironment, config.Zone))
-
-	err = b.exo.RevokeIAMAccessKey(ectx, config.Zone, &egoscale.IAMAccessKey{Key: &key})
-
+	err := b.exo.V2RevokeAccessKey(ctx, key.(string))
 	if err != nil && strings.HasSuffix(err.Error(), ": resource not found") {
 		b.Logger().Warn("IAM key deosn't exist anymore, cleaning up secret", "key", key, "lease_id", req.Secret.LeaseID)
 		return nil, nil
@@ -168,7 +152,6 @@ func (b *exoscaleBackend) secretAPIKeyRevoke(
 		return nil, fmt.Errorf("unable to revoke the API key: %w", err)
 	}
 
-	b.Logger().Info("IAM key revoked", "key", key, "lease_id", req.Secret.LeaseID)
-
+	b.Logger().Info("IAM key revoked", "key", key.(string), "lease_id", req.Secret.LeaseID)
 	return nil, nil
 }
