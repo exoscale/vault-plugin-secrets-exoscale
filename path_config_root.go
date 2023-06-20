@@ -83,7 +83,7 @@ func (b *exoscaleBackend) pathConfigRoot() *framework.Path {
 		Fields: map[string]*framework.FieldSchema{
 			configAPIEnvironment: {
 				Type:        framework.TypeString,
-				Description: "used only by the plugin developpers, do not set",
+				Description: "used only by the plugin developers, do not set",
 				Default:     "api",
 			},
 			configRootAPIKey: {

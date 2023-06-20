@@ -77,7 +77,9 @@ func (role *Role) fromFieldData(data *framework.FieldData) error {
 	v3FieldSet := role.IAMRoleID != ""
 	if v2FieldSet && v3FieldSet {
 		return errors.New("iam-role cannot be used in conjunction with the deprecated fields: operations, resources or tags.")
-	} else if v3FieldSet {
+	}
+
+	if v3FieldSet {
 		role.Version = "v3"
 	} else {
 		role.Version = "v2" // nothing set means v2 unrestricted
