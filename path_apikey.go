@@ -2,7 +2,6 @@ package exoscale
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -52,63 +51,101 @@ func (b *exoscaleBackend) createAPIKey(
 	req *logical.Request,
 	data *framework.FieldData,
 ) (*logical.Response, error) {
-	if b.exo.egoscaleClient == nil {
-		return nil, errors.New("backend is not configured")
-	}
-
 	roleName := data.Get("role").(string)
 
-	role, err := b.getRole(ctx, req.Storage, roleName)
+	role, err := getRole(ctx, req.Storage, roleName)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving role %q: %w", roleName, err)
 	} else if role == nil {
-		return logical.ErrorResponse(fmt.Sprintf("role %q not found", roleName)), nil
+		return logical.ErrorResponse("role %q not found", roleName), nil
 	}
 
-	lc, err := b.leaseConfig(ctx, req.Storage)
-	if err != nil {
-		return nil, err
+	var res *logical.Response
+	if role.Version == "v2" {
+		apikey, err := b.exo.V2CreateAccessKey(ctx, roleName, req.DisplayName, *role)
+		if err != nil {
+			return nil, err
+		}
+
+		lc, err := getLeaseConfig(ctx, req.Storage)
+		if err != nil {
+			return nil, err
+		}
+
+		if role.TTL != 0 {
+			lc.TTL = role.TTL
+		}
+		if role.MaxTTL != 0 {
+			lc.MaxTTL = role.MaxTTL
+		}
+
+		res = b.Secret(SecretTypeAPIKey).Response(
+			// Information returned to the requester
+			map[string]interface{}{
+				apiKeySecretDataName:      *apikey.Name,
+				apiKeySecretDataAPIKey:    *apikey.Key,
+				apiKeySecretDataAPISecret: *apikey.Secret,
+			},
+			// Information for internal use (e.g. revoke)
+			map[string]interface{}{
+				apiKeySecretDataAPIKey: *apikey.Key,
+				"role":                 roleName,
+				"expireTime":           time.Now().Add(lc.TTL),
+				"name":                 *apikey.Name,
+			})
+
+		res.Secret.TTL = lc.TTL
+		res.Secret.MaxTTL = lc.MaxTTL
+		res.Secret.Renewable = role.Renewable
+
+		b.Logger().Info("Creating IAMv2 secret",
+			"ttl", fmt.Sprint(lc.TTL),
+			"max_ttl", fmt.Sprint(lc.MaxTTL),
+			"role", roleName,
+			"iam_key", *apikey.Key,
+			"iam_name", *apikey.Name,
+			"renewable", res.Secret.Renewable)
+	} else {
+		apikey, err := b.exo.V3CreateAPIKey(ctx, roleName, req.DisplayName, *role)
+		if err != nil {
+			return nil, err
+		}
+
+		TTL := b.System().DefaultLeaseTTL()
+		if role.TTL != 0 {
+			TTL = role.TTL
+		}
+
+		res = b.Secret(SecretTypeAPIKey).Response(
+			// Information returned to the requester
+			map[string]interface{}{
+				apiKeySecretDataName:      *apikey.Name,
+				apiKeySecretDataAPIKey:    *apikey.Key,
+				apiKeySecretDataAPISecret: *apikey.Secret,
+			},
+			// Information for internal use (e.g. revoke)
+			map[string]interface{}{
+				apiKeySecretDataAPIKey: *apikey.Key,
+				"role":                 roleName,
+				"expireTime":           time.Now().Add(TTL),
+				"name":                 *apikey.Name,
+				"version":              role.Version,
+			})
+
+		res.Secret.TTL = TTL
+		res.Secret.MaxTTL = role.MaxTTL
+		res.Secret.Renewable = role.Renewable
+
+		b.Logger().Info("Creating IAMv3 secret",
+			"ttl", fmt.Sprint(res.Secret.TTL),
+			"max_ttl", fmt.Sprint(res.Secret.MaxTTL),
+			"role", roleName,
+			"iam_key", *apikey.Key,
+			"iam_name", *apikey.Name,
+			"iam_role_id", *apikey.RoleId,
+			"iam_role_name", role.IAMRoleName,
+			"renewable", res.Secret.Renewable)
 	}
-	if lc == nil {
-		lc = new(leaseConfig)
-	}
-
-	// Role-level lease configuration overrides the backend-level configuration
-	if role.LeaseConfig != nil {
-		lc = role.LeaseConfig
-	}
-
-	iamAPIKey, err := b.exo.V2CreateAccessKey(ctx, roleName, req.DisplayName, *role)
-	if err != nil {
-		return nil, err
-	}
-
-	res := b.Secret(SecretTypeAPIKey).Response(
-		// Information returned to the requester
-		map[string]interface{}{
-			apiKeySecretDataName:      *iamAPIKey.Name,
-			apiKeySecretDataAPIKey:    *iamAPIKey.Key,
-			apiKeySecretDataAPISecret: *iamAPIKey.Secret,
-		},
-		// Information for internal use (e.g. revoke)
-		map[string]interface{}{
-			apiKeySecretDataAPIKey: *iamAPIKey.Key,
-			"role":                 roleName,
-			"expireTime":           time.Now().Add(lc.TTL),
-			"name":                 *iamAPIKey.Name,
-		})
-
-	res.Secret.TTL = lc.TTL
-	res.Secret.MaxTTL = lc.MaxTTL
-	res.Secret.Renewable = role.Renewable
-
-	b.Logger().Info("Creating IAMv2 secret",
-		"ttl", fmt.Sprint(lc.TTL),
-		"max_ttl", fmt.Sprint(lc.MaxTTL),
-		"role", roleName,
-		"iam_key", *iamAPIKey.Key,
-		"iam_name", *iamAPIKey.Name,
-		"renewable", res.Secret.Renewable)
 
 	return res, nil
 }

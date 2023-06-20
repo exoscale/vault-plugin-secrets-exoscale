@@ -29,9 +29,9 @@ func (ts *testSuite) storeEntry(k string, v interface{}) {
 
 func (ts *testSuite) SetupTest() {
 	config := logical.TestBackendConfig()
-	config.StorageView = &logical.InmemStorage{}
+	config.StorageView = new(logical.InmemStorage)
 
-	backendConfigEntry, err := logical.StorageEntryJSON(configRootStoragePath, rootConfig{
+	backendConfigEntry, err := logical.StorageEntryJSON(configRootStoragePath, ExoscaleConfig{
 		APIEnvironment: testConfigAPIEnvironment,
 		RootAPIKey:     testConfigRootAPIKey,
 		RootAPISecret:  testConfigRootAPISecret,
@@ -48,7 +48,11 @@ func (ts *testSuite) SetupTest() {
 	if err != nil {
 		ts.T().Fatal(err)
 	}
-	backend.(*exoscaleBackend).exo = exoscale{egoscaleClient: new(exoscaleClientMock)}
+
+	backend.Initialize(context.Background(), &logical.InitializationRequest{
+		Storage: config.StorageView,
+	})
+	backend.(*exoscaleBackend).exo.egoscaleClient = new(mockEgoscaleClient)
 
 	ts.backend = backend
 	ts.storage = config.StorageView

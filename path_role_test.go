@@ -27,7 +27,7 @@ var (
 )
 
 func (ts *testSuite) TestPathListRoles() {
-	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
+	ts.storeEntry(roleStoragePathPrefix+testRoleName, Role{
 		Operations: testRoleOperations,
 		Resources:  testRoleResources,
 		Tags:       testRoleTags,
@@ -41,14 +41,14 @@ func (ts *testSuite) TestPathListRoles() {
 }
 
 func (ts *testSuite) TestPathRoleWrite() {
-	var actualRoleConfig backendRole
+	var actualRoleConfig Role
 
 	_, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
 		Storage:   ts.storage,
 		Operation: logical.CreateOperation,
 		Path:      roleStoragePathPrefix + testRoleName,
 		Data: map[string]interface{}{
-			configRoleName:       testRoleName,
+			configVaultRoleName:  testRoleName,
 			configRoleOperations: testRoleOperations,
 			configRoleResources:  testRoleResources,
 			configRoleTags:       testRoleTags,
@@ -68,27 +68,26 @@ func (ts *testSuite) TestPathRoleWrite() {
 		ts.FailNow("unable to JSON-decode entry", err)
 	}
 
-	ts.Require().Equal(backendRole{
+	ts.Require().Equal(Role{
 		Operations: testRoleOperations,
 		Resources:  testRoleResources,
 		Tags:       testRoleTags,
-		LeaseConfig: &leaseConfig{
-			TTL:    testConfigLeaseTTL,
-			MaxTTL: testConfigLeaseMaxTTL,
-		},
-		Renewable: true,
+		TTL:        testConfigLeaseTTL,
+		MaxTTL:     testConfigLeaseMaxTTL,
+		Renewable:  true,
+		Version:    "v2",
 	}, actualRoleConfig)
 }
 
 func (ts *testSuite) TestPathRoleWriteNonRenewable() {
-	var actualRoleConfig backendRole
+	var actualRoleConfig Role
 
 	_, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
 		Storage:   ts.storage,
 		Operation: logical.CreateOperation,
 		Path:      roleStoragePathPrefix + testRoleName,
 		Data: map[string]interface{}{
-			configRoleName:       testRoleName,
+			configVaultRoleName:  testRoleName,
 			configRoleOperations: testRoleOperations,
 			configRoleResources:  testRoleResources,
 			configRoleTags:       testRoleTags,
@@ -109,20 +108,19 @@ func (ts *testSuite) TestPathRoleWriteNonRenewable() {
 		ts.FailNow("unable to JSON-decode entry", err)
 	}
 
-	ts.Require().Equal(backendRole{
+	ts.Require().Equal(Role{
 		Operations: testRoleOperations,
 		Resources:  testRoleResources,
 		Tags:       testRoleTags,
-		LeaseConfig: &leaseConfig{
-			TTL:    testConfigLeaseTTL,
-			MaxTTL: testConfigLeaseMaxTTL,
-		},
-		Renewable: false,
+		TTL:        testConfigLeaseTTL,
+		MaxTTL:     testConfigLeaseMaxTTL,
+		Renewable:  false,
+		Version:    "v2",
 	}, actualRoleConfig)
 }
 
 func (ts *testSuite) TestPathRoleRead() {
-	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
+	ts.storeEntry(roleStoragePathPrefix+testRoleName, Role{
 		Operations: testRoleOperations,
 		Resources:  testRoleResources,
 		Tags:       testRoleTags,
@@ -143,7 +141,7 @@ func (ts *testSuite) TestPathRoleRead() {
 }
 
 func (ts *testSuite) TestPathRoleDelete() {
-	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
+	ts.storeEntry(roleStoragePathPrefix+testRoleName, Role{
 		Operations: testRoleOperations,
 		Resources:  testRoleResources,
 		Tags:       testRoleTags,

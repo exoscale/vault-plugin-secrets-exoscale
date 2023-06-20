@@ -11,10 +11,17 @@ import (
 	egoscale "github.com/exoscale/egoscale/v2"
 	exoapi "github.com/exoscale/egoscale/v2/api"
 	"github.com/exoscale/egoscale/v2/oapi"
+	"github.com/exoscale/vault-plugin-secrets-exoscale/version"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
+var ErrorBackendNotConfigured = errors.New(`Exoscale secret engine not configured
+hint: vault path-help exoscale/config/root # (replace "exoscale" by your mount point)`)
+
 // egoscaleClient is implemented by egoscale and by a mock for testing
+//
+//go:generate mockery --name egoscaleClient
 type egoscaleClient interface {
 	CreateIAMAccessKey(context.Context, string, string, ...egoscale.CreateIAMAccessKeyOpt) (*egoscale.IAMAccessKey, error)
 	RevokeIAMAccessKey(context.Context, string, *egoscale.IAMAccessKey) error
@@ -25,17 +32,21 @@ type egoscaleClient interface {
 	ListIamRolesWithResponse(ctx context.Context, reqEditors ...oapi.RequestEditorFn) (*oapi.ListIamRolesResponse, error)
 }
 
-// exoscale is an abstraction over the Exoscale API
-type exoscale struct {
+// Exoscale is an abstraction over the Exoscale API
+type Exoscale struct {
 	sync.RWMutex
 	egoscaleClient
-	apiKey      string
 	reqEndpoint exoapi.ReqEndpoint
-	configured  bool
+
+	apiKey    string
+	apiSecret string
+
+	configured       bool
+	apiKeyNamePrefix string
 }
 
-func (e *exoscale) LoadConfigFromStorage(ctx context.Context, storage logical.Storage) error {
-	var config rootConfig
+func (e *Exoscale) LoadConfigFromStorage(ctx context.Context, storage logical.Storage) error {
+	var config ExoscaleConfig
 
 	entry, err := storage.Get(ctx, configRootStoragePath)
 	if err != nil {
@@ -58,7 +69,7 @@ func (e *exoscale) LoadConfigFromStorage(ctx context.Context, storage logical.St
 	return nil
 }
 
-func (e *exoscale) LoadConfig(cfg rootConfig) error {
+func (e *Exoscale) LoadConfig(cfg ExoscaleConfig) error {
 	exo, err := egoscale.NewClient(cfg.RootAPIKey, cfg.RootAPISecret)
 	if err != nil {
 		return fmt.Errorf("unable to initialize Exoscale client: %w", err)
@@ -67,29 +78,33 @@ func (e *exoscale) LoadConfig(cfg rootConfig) error {
 	reqEndpoint := exoapi.NewReqEndpoint(cfg.APIEnvironment, cfg.Zone)
 
 	e.Lock()
+	egoscale.UserAgent = fmt.Sprintf("Exoscale-Vault-Plugin-Secrets/%s (%s) %s",
+		version.Version, version.Commit, egoscale.UserAgent)
 	e.egoscaleClient = exo
 	e.reqEndpoint = reqEndpoint
 	e.configured = true
 	e.apiKey = cfg.RootAPIKey
-	e.RLocker().Unlock()
+	e.apiSecret = cfg.RootAPISecret
+	e.apiKeyNamePrefix = cfg.APIKeyNamePrefix
+	e.Unlock()
 
 	return nil
 }
 
-// parseIAMAccessKeyResource parses a string-encoded IAM access key resource formatted such as
+// v2ParseIAMResource parses a string-encoded IAM access key resource formatted such as
 // DOMAIN/TYPE:NAME and deserializes it into an egoscale.IAMAccessKeyResource struct.
-func parseIAMAccessKeyResource(v string) (*egoscale.IAMAccessKeyResource, error) {
+func V2ParseIAMResource(v string) (*egoscale.IAMAccessKeyResource, error) {
 	var iamAccessKeyResource egoscale.IAMAccessKeyResource
 
 	parts := strings.SplitN(v, ":", 2)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid format")
+		return nil, fmt.Errorf("invalid resource format %q", v)
 	}
 	iamAccessKeyResource.ResourceName = parts[1]
 
 	parts = strings.SplitN(parts[0], "/", 2)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid format")
+		return nil, fmt.Errorf("invalid resource format %q", v)
 	}
 	iamAccessKeyResource.Domain = parts[0]
 	iamAccessKeyResource.ResourceType = parts[1]
@@ -97,19 +112,19 @@ func parseIAMAccessKeyResource(v string) (*egoscale.IAMAccessKeyResource, error)
 	if iamAccessKeyResource.Domain == "" ||
 		iamAccessKeyResource.ResourceType == "" ||
 		iamAccessKeyResource.ResourceName == "" {
-		return nil, fmt.Errorf("invalid format")
+		return nil, fmt.Errorf("invalid resource format %q", v)
 	}
 
 	return &iamAccessKeyResource, nil
 }
 
 // V2CreateAccessKey creates a IAMv2 Access Key
-func (e *exoscale) V2CreateAccessKey(ctx context.Context, roleName string, reqDisplayName string, role backendRole) (*egoscale.IAMAccessKey, error) {
+func (e *Exoscale) V2CreateAccessKey(ctx context.Context, roleName string, reqDisplayName string, role Role) (*egoscale.IAMAccessKey, error) {
 	e.RLock()
 	defer e.RUnlock()
 
 	if !e.configured {
-		return nil, errors.New("backend is not configured")
+		return nil, ErrorBackendNotConfigured
 	}
 
 	opts := make([]egoscale.CreateIAMAccessKeyOpt, 0)
@@ -120,7 +135,7 @@ func (e *exoscale) V2CreateAccessKey(ctx context.Context, roleName string, reqDi
 	if len(role.Resources) > 0 {
 		resources := make([]egoscale.IAMAccessKeyResource, len(role.Resources))
 		for i, rs := range role.Resources {
-			r, err := parseIAMAccessKeyResource(rs)
+			r, err := V2ParseIAMResource(rs)
 			if err != nil {
 				return nil, fmt.Errorf("invalid API resource %q", rs)
 			}
@@ -133,10 +148,15 @@ func (e *exoscale) V2CreateAccessKey(ctx context.Context, roleName string, reqDi
 		opts = append(opts, egoscale.CreateIAMAccessKeyWithTags(role.Tags))
 	}
 
+	var prefix string
+	if e.apiKeyNamePrefix != "" {
+		prefix = e.apiKeyNamePrefix + "-"
+	}
+
 	iamAPIKey, err := e.CreateIAMAccessKey(
 		exoapi.WithEndpoint(ctx, e.reqEndpoint),
 		e.reqEndpoint.Zone(),
-		fmt.Sprintf("vault-%s-%s-%d-deprecated", roleName, reqDisplayName, time.Now().UnixNano()),
+		fmt.Sprintf("vault-%s%s-%s-%d-deprecated", prefix, roleName, reqDisplayName, time.Now().UnixNano()),
 		opts...,
 	)
 	if err != nil {
@@ -147,86 +167,91 @@ func (e *exoscale) V2CreateAccessKey(ctx context.Context, roleName string, reqDi
 }
 
 // V2RevokeAccessKey revokes a IAMv2 Access Key
-func (e *exoscale) V2RevokeAccessKey(ctx context.Context, key string) error {
+func (e *Exoscale) V2RevokeAccessKey(ctx context.Context, key string) error {
 	e.RLock()
 	defer e.RUnlock()
 
 	if !e.configured {
-		return errors.New("backend is not configured")
+		return ErrorBackendNotConfigured
 	}
 
 	return e.RevokeIAMAccessKey(exoapi.WithEndpoint(ctx, e.reqEndpoint), e.reqEndpoint.Zone(), &egoscale.IAMAccessKey{Key: &key})
 }
 
 // V3CreateAPIKey creates a IAMv3 API Key
-func (e *exoscale) V3CreateAPIKey(ctx context.Context, roleName string, reqDisplayName string, role backendRole) (*oapi.IamApiKeyCreated, error) {
+func (e *Exoscale) V3CreateAPIKey(ctx context.Context, roleName string, reqDisplayName string, role Role) (*oapi.IamApiKeyCreated, error) {
 	e.RLock()
 	defer e.RUnlock()
 
+	var prefix string
+	if e.apiKeyNamePrefix != "" {
+		prefix = e.apiKeyNamePrefix + "-"
+	}
+
 	if !e.configured {
-		return nil, errors.New("backend is not configured")
+		return nil, ErrorBackendNotConfigured
 	}
 
-	roleID, err := e.V3GetRoleID(ctx, role.IAMRoleName)
-	if err != nil {
-		return nil, err
-	}
-
-	e.CreateApiKeyWithResponse(ctx, oapi.CreateApiKeyJSONRequestBody{
-		Name:   fmt.Sprintf("vault-%s-%s-%d", roleName, reqDisplayName, time.Now().UnixNano()),
-		RoleId: roleID,
+	resp, err := e.CreateApiKeyWithResponse(exoapi.WithEndpoint(ctx, e.reqEndpoint), oapi.CreateApiKeyJSONRequestBody{
+		Name:   fmt.Sprintf("vault-%s%s-%s-%d", prefix, roleName, reqDisplayName, time.Now().UnixNano()),
+		RoleId: role.IAMRoleID,
 	})
 
-	return nil, nil
+	return resp.JSON200, err
 }
 
 // V3DeleteAPIKey deletes a IAMv3 API Key
-func (e *exoscale) V3DeleteAPIKey(ctx context.Context, id string) error {
+func (e *Exoscale) V3DeleteAPIKey(ctx context.Context, key string) error {
 	e.RLock()
 	defer e.RUnlock()
 
 	if !e.configured {
-		return errors.New("backend is not configured")
+		return ErrorBackendNotConfigured
 	}
 
-	resp, err := e.DeleteApiKeyWithResponse(ctx, id)
+	resp, err := e.DeleteApiKeyWithResponse(exoapi.WithEndpoint(ctx, e.reqEndpoint), key)
 	if err != nil {
 		return err
 	}
-
-	if *resp.JSON200.State != oapi.OperationStateSuccess { // TODO
+	if *resp.JSON200.State != oapi.OperationStateSuccess { // TODO(antoine): check if the state is "pending" and poll
 		return errors.New(*resp.JSON200.Message)
 	}
+
+	fmt.Println(*resp.JSON200.State)
 
 	return nil
 }
 
-// V3GetRoleID takes a role ID or name and returns a role ID if that role exists
-func (e *exoscale) V3GetRoleID(ctx context.Context, role string) (string, error) {
+// V3GetRole takes a role ID or name and returns a role ID if that role exists
+func (e *Exoscale) V3GetRole(ctx context.Context, role string) (*oapi.IamRole, error) {
 	e.RLock()
 	defer e.RUnlock()
 
 	if !e.configured {
-		return "", errors.New("backend is not configured")
+		return nil, ErrorBackendNotConfigured
 	}
 
-	rolebyid, err := e.GetIamRoleWithResponse(ctx, role)
-	if err == nil && rolebyid.JSON200 != nil {
-		return *rolebyid.JSON200.Id, nil
+	_, err := uuid.ParseUUID(role)
+	if err == nil {
+		rolebyid, err := e.GetIamRoleWithResponse(exoapi.WithEndpoint(ctx, e.reqEndpoint), role)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch role %q by ID: %w", role, err)
+		}
+		return rolebyid.JSON200, nil
 	}
 
-	allroles, err := e.ListIamRolesWithResponse(ctx)
+	allroles, err := e.ListIamRolesWithResponse(exoapi.WithEndpoint(ctx, e.reqEndpoint))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if allroles.JSON200 != nil && allroles.JSON200.IamRoles != nil {
 		for _, r := range *allroles.JSON200.IamRoles {
 			if *r.Name == role {
-				return *r.Id, nil
+				return &r, nil
 			}
 		}
 	}
 
-	return "", errors.New("role not found")
+	return nil, fmt.Errorf("role %q not found", role)
 }

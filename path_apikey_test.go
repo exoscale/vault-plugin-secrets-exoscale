@@ -31,7 +31,7 @@ func (ts *testSuite) TestPathAPIKey() {
 		testLeaseMaxTTL        = 1 * time.Hour
 	)
 
-	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
+	ts.storeEntry(roleStoragePathPrefix+testRoleName, Role{
 		Operations: testRoleOperations,
 		Resources:  testRoleResources,
 		Tags:       testRoleTags,
@@ -41,13 +41,12 @@ func (ts *testSuite) TestPathAPIKey() {
 		MaxTTL: testLeaseMaxTTL,
 	})
 
-	ts.backend.(*exoscaleBackend).exo.(*exoscaleClientMock).
-		On("CreateIAMAccessKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	ts.backend.(*exoscaleBackend).exo.egoscaleClient.(*mockEgoscaleClient).
+		On("CreateIAMAccessKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			actualIAMAccessKeyName = args.Get(2).(string)
 
 			ts.Require().True(strings.HasPrefix(actualIAMAccessKeyName, testIAMAccessKeyNamePrefix))
-			ts.Require().Len(args.Get(3).([]egoscale.CreateIAMAccessKeyOpt), 3)
 			created = true
 		}).
 		Return(&egoscale.IAMAccessKey{
@@ -68,7 +67,7 @@ func (ts *testSuite) TestPathAPIKey() {
 	res, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
 		Storage:     ts.storage,
 		Operation:   logical.ReadOperation,
-		Path:        apiKeyPathPrefix + testRoleName,
+		Path:        "apikey/" + testRoleName,
 		DisplayName: "test",
 	})
 	if err != nil {
@@ -119,7 +118,7 @@ func (ts *testSuite) TestParseIAMAccessKeyResource() {
 
 	for _, tt := range tests {
 		ts.T().Run(tt.name, func(t *testing.T) {
-			got, err := parseIAMAccessKeyResource(tt.input)
+			got, err := V2ParseIAMResource(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseIAMAccessKeyResource() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -15,7 +15,7 @@ var (
 )
 
 func (ts *testSuite) TestPathConfigRootRead() {
-	ts.storeEntry(configRootStoragePath, backendConfig{
+	ts.storeEntry(configRootStoragePath, ExoscaleConfig{
 		APIEnvironment: testConfigAPIEnvironment,
 		RootAPIKey:     testConfigRootAPIKey,
 		RootAPISecret:  testConfigRootAPISecret,
@@ -42,7 +42,7 @@ func (ts *testSuite) TestPathConfigRootWrite() {
 		name     string
 		data     map[string]interface{}
 		storage  logical.Storage
-		expected backendConfig
+		expected ExoscaleConfig
 		wantErr  error
 	}{
 		{
@@ -53,14 +53,6 @@ func (ts *testSuite) TestPathConfigRootWrite() {
 			wantErr: errMissingAPICredentials,
 		},
 		{
-			name: "missing zone",
-			data: map[string]interface{}{
-				configRootAPIKey:    testConfigRootAPIKey,
-				configRootAPISecret: testConfigRootAPISecret,
-			},
-			wantErr: errMissingZone,
-		},
-		{
 			name: "ok",
 			data: map[string]interface{}{
 				configAPIEnvironment: testConfigAPIEnvironment,
@@ -68,7 +60,7 @@ func (ts *testSuite) TestPathConfigRootWrite() {
 				configRootAPISecret:  testConfigRootAPISecret,
 				configZone:           testConfigZone,
 			},
-			expected: backendConfig{
+			expected: ExoscaleConfig{
 				APIEnvironment: testConfigAPIEnvironment,
 				RootAPIKey:     testConfigRootAPIKey,
 				RootAPISecret:  testConfigRootAPISecret,
@@ -79,7 +71,7 @@ func (ts *testSuite) TestPathConfigRootWrite() {
 
 	for _, tt := range tests {
 		ts.T().Run(tt.name, func(t *testing.T) {
-			var actualBackendConfig backendConfig
+			var actualBackendConfig ExoscaleConfig
 			tt.storage = &logical.InmemStorage{}
 
 			_, err := ts.backend.HandleRequest(context.Background(), &logical.Request{

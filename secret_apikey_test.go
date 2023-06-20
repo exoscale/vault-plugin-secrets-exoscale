@@ -12,7 +12,7 @@ import (
 func (ts *testSuite) TestSecretAPIKeyRevoke() {
 	var revoked bool
 
-	ts.storeEntry(roleStoragePathPrefix+testRoleName, backendRole{
+	ts.storeEntry(roleStoragePathPrefix+testRoleName, Role{
 		Operations: testRoleOperations,
 		Tags:       testRoleTags,
 	})
@@ -25,7 +25,7 @@ func (ts *testSuite) TestSecretAPIKeyRevoke() {
 		LeaseID: ts.randomID(),
 	}
 
-	ts.backend.(*exoscaleBackend).exo.(*exoscaleClientMock).
+	ts.backend.(*exoscaleBackend).exo.egoscaleClient.(*mockEgoscaleClient).
 		On("RevokeIAMAccessKey", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			ts.Require().Equal(&egoscale.IAMAccessKey{Key: &testIAMAccessKeyKey}, args.Get(2))
