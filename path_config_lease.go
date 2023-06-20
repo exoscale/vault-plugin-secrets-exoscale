@@ -13,7 +13,7 @@ const configLeaseStoragePath = "config/lease"
 const (
 	pathConfigLeaseHelpSyn  = "Configure the backend-specific secrets lease parameters"
 	pathConfigLeaseHelpDesc = `Manages the default secrets lease duration.
-Can be overriden by the role settings.
+Can be overridden by the role settings.
 
 ⚠️ WARNING⚠️  This setting only applies to legacy IAM access key,
 new API keys should take advantage of the "vault secrets tune" command:

@@ -24,8 +24,8 @@ var (
 Configure the root Exoscale API credentials that will be used to manage the IAM Keys
 that are handled by Vault.
 
-This plugin currently supports both our new IAM API Keys (refered to as "v3 API key" in our API)
-and our legacy IAM keys (refered to as "IAM Access Key" in our API)
+This plugin currently supports both our new IAM API Keys (referred to as "v3 API key" in our API)
+and our legacy IAM keys (referred to as "IAM Access Key" in our API)
 
 IAM API Keys (recommended)
 ==========================

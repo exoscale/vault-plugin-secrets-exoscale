@@ -49,9 +49,12 @@ func (ts *testSuite) SetupTest() {
 		ts.T().Fatal(err)
 	}
 
-	backend.Initialize(context.Background(), &logical.InitializationRequest{
+	err = backend.Initialize(context.Background(), &logical.InitializationRequest{
 		Storage: config.StorageView,
 	})
+	if err != nil {
+		ts.T().Fatal(err)
+	}
 	backend.(*exoscaleBackend).exo.egoscaleClient = new(mockEgoscaleClient)
 
 	ts.backend = backend

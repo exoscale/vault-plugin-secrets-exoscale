@@ -76,7 +76,7 @@ func (role *Role) fromFieldData(data *framework.FieldData) error {
 	v2FieldSet := (role.Operations != nil || role.Resources != nil || role.Tags != nil)
 	v3FieldSet := role.IAMRoleID != ""
 	if v2FieldSet && v3FieldSet {
-		return errors.New("iam-role cannot be used in conjuction with the deprecated fields: operations, resources or tags.")
+		return errors.New("iam-role cannot be used in conjunction with the deprecated fields: operations, resources or tags.")
 	} else if v3FieldSet {
 		role.Version = "v3"
 	} else {
@@ -113,8 +113,8 @@ This endpoint returns a list of the configured backend roles.
 	pathRoleHelpDesc = `
 Manage backend roles used to generate Exoscale API keys.
 
-This plugin currently supports both our new IAM API Keys (refered to as "v3 API key" in our API)
-and our legacy IAM keys (refered to as "IAM Access Key" in our API)
+This plugin currently supports both our new IAM API Keys (referred to as "v3 API key" in our API)
+and our legacy IAM keys (referred to as "IAM Access Key" in our API)
 
 IAM API Keys (recommended)
 ==========================
@@ -207,7 +207,7 @@ func (b *exoscaleBackend) pathRole() []*framework.Path {
 				configIAMRole: {
 					Type: framework.TypeString,
 					Description: `Name or ID of an Exoscale IAM role created externally (e.g. with terraform).
-				Cannot be used in conjuction with the deprecated fields: operations, resources or tags.`,
+				Cannot be used in conjunction with the deprecated fields: operations, resources or tags.`,
 				},
 			},
 
