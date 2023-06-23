@@ -11,7 +11,7 @@ var (
 	testConfigAPIEnvironment = "testapi"
 	testConfigRootAPIKey     = "EXOabcdef0123456789abcdef01"
 	testConfigRootAPISecret  = "ABCDEFGHIJKLMNOPRQSTUVWXYZ0123456789abcdefg"
-	testConfigZone           = "ch-gva-2"
+	testConfigZone           = "de-fra-1"
 )
 
 func (ts *testSuite) TestPathConfigRootRead() {
@@ -55,16 +55,18 @@ func (ts *testSuite) TestPathConfigRootWrite() {
 		{
 			name: "ok",
 			data: map[string]interface{}{
-				configAPIEnvironment: testConfigAPIEnvironment,
-				configRootAPIKey:     testConfigRootAPIKey,
-				configRootAPISecret:  testConfigRootAPISecret,
-				configZone:           testConfigZone,
+				configAPIEnvironment:   testConfigAPIEnvironment,
+				configRootAPIKey:       testConfigRootAPIKey,
+				configRootAPISecret:    testConfigRootAPISecret,
+				configAPIKeyNamePrefix: "toto",
+				configZone:             testConfigZone,
 			},
 			expected: ExoscaleConfig{
-				APIEnvironment: testConfigAPIEnvironment,
-				RootAPIKey:     testConfigRootAPIKey,
-				RootAPISecret:  testConfigRootAPISecret,
-				Zone:           testConfigZone,
+				APIEnvironment:   testConfigAPIEnvironment,
+				RootAPIKey:       testConfigRootAPIKey,
+				RootAPISecret:    testConfigRootAPISecret,
+				Zone:             testConfigZone,
+				APIKeyNamePrefix: "toto",
 			},
 		},
 	}

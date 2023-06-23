@@ -8,12 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-uuid"
+	"github.com/hashicorp/vault/sdk/logical"
+
 	egoscale "github.com/exoscale/egoscale/v2"
 	exoapi "github.com/exoscale/egoscale/v2/api"
 	"github.com/exoscale/egoscale/v2/oapi"
 	"github.com/exoscale/vault-plugin-secrets-exoscale/version"
-	"github.com/hashicorp/go-uuid"
-	"github.com/hashicorp/vault/sdk/logical"
 )
 
 var ErrorBackendNotConfigured = errors.New(`Exoscale secret engine not configured
