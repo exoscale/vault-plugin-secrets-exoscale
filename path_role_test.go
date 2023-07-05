@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/exoscale/egoscale/v2/oapi"
 	"github.com/hashicorp/vault/sdk/logical"
 	mock "github.com/stretchr/testify/mock"
+
+	"github.com/exoscale/egoscale/v2/oapi"
 )
 
 var (

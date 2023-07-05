@@ -2,7 +2,6 @@ package exoscale
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -16,11 +15,10 @@ import (
 )
 
 var (
-	testIAMAccessKeyNamePrefix = fmt.Sprintf("vault-%s-", testRoleName)
-	testIAMAccessKeyKey        = "EXOxxxxxxxxxxxxxxxxxxxxxxxx"
-	testIAMAccessKeySecret     = "yyyyyyyyy-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
-	testIAMAccessKeyType       = string(oapi.AccessKeyTypeRestricted)
-	testIAMAccessKeyVersion    = string(oapi.AccessKeyVersionV2)
+	testIAMAccessKeyKey     = "EXOxxxxxxxxxxxxxxxxxxxxxxxx"
+	testIAMAccessKeySecret  = "yyyyyyyyy-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+	testIAMAccessKeyType    = string(oapi.AccessKeyTypeRestricted)
+	testIAMAccessKeyVersion = string(oapi.AccessKeyVersionV2)
 )
 
 func (ts *testSuite) TestPathV2LegacyAPIKey() {

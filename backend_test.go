@@ -33,18 +33,18 @@ func (ts *testSuite) SetupTest() {
 
 	// putting raw data from a previous version of the plugin
 	// in storage to see if it is able to work with it
-	config.StorageView.Put(context.Background(), &logical.StorageEntry{
+	ts.Require().NoError(config.StorageView.Put(context.Background(), &logical.StorageEntry{
 		Key:   "config/lease",
 		Value: []byte(`{"ttl":46800000000000,"max_ttl":72000000000000}`),
-	})
-	config.StorageView.Put(context.Background(), &logical.StorageEntry{
+	}))
+	ts.Require().NoError(config.StorageView.Put(context.Background(), &logical.StorageEntry{
 		Key:   "config/root",
 		Value: []byte(`{"api_environment":"api","root_api_key":"EXO0000","root_api_secret":"xxxxxxxx","zone":"ch-gva-2"}`),
-	})
-	config.StorageView.Put(context.Background(), &logical.StorageEntry{
+	}))
+	ts.Require().NoError(config.StorageView.Put(context.Background(), &logical.StorageEntry{
 		Key:   "role/mylegacyrole",
 		Value: []byte(`{"operations":["list-instance-types","list-templates","list-zones"],"resources":["sos/bucket:test"],"tags":["read"],"lease_config":{"ttl":600000000000,"max_ttl":3000000000000},"renewable":false}`),
-	})
+	}))
 
 	backend, err := Factory(context.Background(), config)
 	if err != nil {
