@@ -77,7 +77,6 @@ func (b *exoscaleBackend) secretAPIKeyRenew(
 		b.Logger().Info("Renewing",
 			"ttl", fmt.Sprint(res.Secret.TTL),
 			"role", req.Secret.InternalData["role"],
-			"test", req.Secret.InternalData["roleodok,feorfreon"],
 			"iam_key", iamKey,
 			"iam_name", iamName)
 	} else {

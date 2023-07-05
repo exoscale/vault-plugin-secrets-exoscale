@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-var (
+const (
 	testConfigAPIEnvironment = "testapi"
 	testConfigRootAPIKey     = "EXOabcdef0123456789abcdef01"
 	testConfigRootAPISecret  = "ABCDEFGHIJKLMNOPRQSTUVWXYZ0123456789abcdefg"
@@ -15,13 +15,6 @@ var (
 )
 
 func (ts *testSuite) TestPathConfigRootRead() {
-	ts.storeEntry(configRootStoragePath, ExoscaleConfig{
-		APIEnvironment: testConfigAPIEnvironment,
-		RootAPIKey:     testConfigRootAPIKey,
-		RootAPISecret:  testConfigRootAPISecret,
-		Zone:           testConfigZone,
-	})
-
 	res, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
 		Storage:   ts.storage,
 		Operation: logical.ReadOperation,
@@ -31,10 +24,13 @@ func (ts *testSuite) TestPathConfigRootRead() {
 		ts.FailNow("request failed", err)
 	}
 
-	ts.Require().Equal(testConfigAPIEnvironment, res.Data[configAPIEnvironment].(string))
-	ts.Require().Equal(testConfigRootAPIKey, res.Data[configRootAPIKey].(string))
-	ts.Require().Equal(testConfigRootAPISecret, res.Data[configRootAPISecret].(string))
-	ts.Require().Equal(testConfigZone, res.Data[configZone].(string))
+	ts.Require().Equal(map[string]interface{}{
+		"api_environment":     "api",
+		"root_api_key":        "EXO0000",
+		"root_api_secret":     "xxxxxxxx",
+		"api_key_name_prefix": "",
+		"zone":                "ch-gva-2",
+	}, res.Data)
 }
 
 func (ts *testSuite) TestPathConfigRootWrite() {
@@ -46,14 +42,25 @@ func (ts *testSuite) TestPathConfigRootWrite() {
 		wantErr  error
 	}{
 		{
-			name: "missing API credentials",
-			data: map[string]interface{}{
-				configZone: testConfigZone,
-			},
+			name:    "missing API credentials",
+			data:    map[string]interface{}{},
 			wantErr: errMissingAPICredentials,
 		},
 		{
-			name: "ok",
+			name: "minimal",
+			data: map[string]interface{}{
+				configRootAPIKey:    testConfigRootAPIKey,
+				configRootAPISecret: testConfigRootAPISecret,
+			},
+			expected: ExoscaleConfig{
+				APIEnvironment: "api",
+				RootAPIKey:     testConfigRootAPIKey,
+				RootAPISecret:  testConfigRootAPISecret,
+				Zone:           "ch-gva-2",
+			},
+		},
+		{
+			name: "full",
 			data: map[string]interface{}{
 				configAPIEnvironment:   testConfigAPIEnvironment,
 				configRootAPIKey:       testConfigRootAPIKey,

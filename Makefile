@@ -24,3 +24,7 @@ test-acc: ## Run acceptance tests (requires valid Exoscale API credentials)
 generate-mocks:
 	go install github.com/vektra/mockery/v2@v2.30.1
 	go generate
+
+cover:
+	go test -cover -coverprofile=cover.out ./...
+	go tool cover -html cover.out
