@@ -37,15 +37,6 @@ This can be achieved with the following role policy :
 {
   "default-service-strategy": "deny",
   "services": {
-    "compute": {
-      "type": "rules",
-      "rules": [
-        {
-          "expression": "operation == 'get-operation'",
-          "action": "allow"
-        }
-      ]
-    },
     "iam": {
       "type": "rules",
       "rules": [
