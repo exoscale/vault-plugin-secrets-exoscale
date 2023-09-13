@@ -20,3 +20,11 @@ test-acc: ## Run acceptance tests (requires valid Exoscale API credentials)
 		--tags=testacc              \
 		$(GO_TEST_EXTRA_ARGS)       \
 		$(GO_TEST_PKGS)
+
+generate-mocks:
+	go install github.com/vektra/mockery/v2@v2.30.1
+	go generate
+
+cover:
+	go test -cover -coverprofile=cover.out ./...
+	go tool cover -html cover.out

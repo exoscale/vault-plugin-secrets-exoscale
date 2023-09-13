@@ -29,26 +29,35 @@ func (ts *testSuite) storeEntry(k string, v interface{}) {
 
 func (ts *testSuite) SetupTest() {
 	config := logical.TestBackendConfig()
-	config.StorageView = &logical.InmemStorage{}
+	config.StorageView = new(logical.InmemStorage)
 
-	backendConfigEntry, err := logical.StorageEntryJSON(configRootStoragePath, backendConfig{
-		APIEnvironment: testConfigAPIEnvironment,
-		RootAPIKey:     testConfigRootAPIKey,
-		RootAPISecret:  testConfigRootAPISecret,
-		Zone:           testConfigZone,
-	})
-	if err != nil {
-		ts.FailNow("unable to JSON-encode backend config entry", err)
-	}
-	if err := config.StorageView.Put(context.Background(), backendConfigEntry); err != nil {
-		ts.FailNow("unable to store backend config entry", err)
-	}
+	// putting raw data from a previous version of the plugin
+	// in storage to see if it is able to work with it
+	ts.Require().NoError(config.StorageView.Put(context.Background(), &logical.StorageEntry{
+		Key:   "config/lease",
+		Value: []byte(`{"ttl":46800000000000,"max_ttl":72000000000000}`),
+	}))
+	ts.Require().NoError(config.StorageView.Put(context.Background(), &logical.StorageEntry{
+		Key:   "config/root",
+		Value: []byte(`{"api_environment":"api","root_api_key":"EXO0000","root_api_secret":"xxxxxxxx","zone":"ch-gva-2"}`),
+	}))
+	ts.Require().NoError(config.StorageView.Put(context.Background(), &logical.StorageEntry{
+		Key:   "role/mylegacyrole",
+		Value: []byte(`{"operations":["list-instance-types","list-templates","list-zones"],"resources":["sos/bucket:test"],"tags":["read"],"lease_config":{"ttl":600000000000,"max_ttl":3000000000000},"renewable":false}`),
+	}))
 
 	backend, err := Factory(context.Background(), config)
 	if err != nil {
 		ts.T().Fatal(err)
 	}
-	backend.(*exoscaleBackend).exo = new(exoscaleClientMock)
+
+	err = backend.Initialize(context.Background(), &logical.InitializationRequest{
+		Storage: config.StorageView,
+	})
+	if err != nil {
+		ts.T().Fatal(err)
+	}
+	backend.(*exoscaleBackend).exo.egoscaleClient = new(mockEgoscaleClient)
 
 	ts.backend = backend
 	ts.storage = config.StorageView

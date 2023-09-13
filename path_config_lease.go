@@ -12,13 +12,19 @@ const configLeaseStoragePath = "config/lease"
 
 const (
 	pathConfigLeaseHelpSyn  = "Configure the backend-specific secrets lease parameters"
-	pathConfigLeaseHelpDesc = `
-This endpoint manages the secrets lease duration applied to generated API key
-secrets. If not configured, global system lease values are applied to generated
-secrets.
+	pathConfigLeaseHelpDesc = `Manages the default secrets lease duration.
+Can be overridden by the role settings.
 
-Note: it is not possible to configure a lease duration greater than the
-system's defaults.
+⚠️ WARNING⚠️  This setting only applies to legacy IAM access key,
+new API keys should take advantage of the "vault secrets tune" command:
+- vault secrets tune -default-lease-ttl=4m -max-lease-ttl=8m exoscale
+- vault read sys/mounts/exoscale/tune
+
+
+If not configured, global system lease values are applied to generated
+secrets.
+(note: it is not possible to configure a lease duration greater than the
+system's defaults)
 `
 )
 
@@ -27,12 +33,14 @@ func (b *exoscaleBackend) pathConfigLease() *framework.Path {
 		Pattern: "config/lease",
 		Fields: map[string]*framework.FieldSchema{
 			"ttl": {
-				Type:        framework.TypeDurationSecond,
-				Description: "Duration of issued API key secrets",
+				Type: framework.TypeDurationSecond,
+				Description: `Duration of issued API key secrets
+				If not set or set to 0, will use system default`,
 			},
 			"max_ttl": {
-				Type:        framework.TypeDurationSecond,
-				Description: `Duration after which the issued API key secrets are not allowed to be renewed`,
+				Type: framework.TypeDurationSecond,
+				Description: `Duration after which the issued API key secrets are not allowed to be renewed
+				If not set or set to 0, will use system default`,
 			},
 		},
 
@@ -47,22 +55,22 @@ func (b *exoscaleBackend) pathConfigLease() *framework.Path {
 	}
 }
 
-func (b *exoscaleBackend) leaseConfig(ctx context.Context, storage logical.Storage) (*leaseConfig, error) {
+func getLeaseConfig(ctx context.Context, storage logical.Storage) (leaseConfig, error) {
 	var lc leaseConfig
 
 	entry, err := storage.Get(ctx, configLeaseStoragePath)
 	if err != nil {
-		return nil, err
+		return leaseConfig{}, err
 	}
 	if entry == nil {
-		return nil, nil
+		return leaseConfig{}, nil
 	}
 
 	if err := entry.DecodeJSON(&lc); err != nil {
-		return nil, err
+		return leaseConfig{}, err
 	}
 
-	return &lc, nil
+	return lc, nil
 }
 
 func (b *exoscaleBackend) pathLeaseRead(
@@ -70,20 +78,22 @@ func (b *exoscaleBackend) pathLeaseRead(
 	req *logical.Request,
 	_ *framework.FieldData,
 ) (*logical.Response, error) {
-	lease, err := b.leaseConfig(ctx, req.Storage)
+	lc, err := getLeaseConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
-	if lease == nil {
-		return nil, nil
+
+	res := &logical.Response{
+		Data: map[string]interface{}{
+			"ttl":     int64(lc.TTL.Seconds()),
+			"max_ttl": int64(lc.MaxTTL.Seconds()),
+		},
 	}
 
-	return &logical.Response{
-		Data: map[string]interface{}{
-			"ttl":     int64(lease.TTL.Seconds()),
-			"max_ttl": int64(lease.MaxTTL.Seconds()),
-		},
-	}, nil
+	res.AddWarning(`This setting only applies to legacy IAM access key,
+new API keys should take advantage of the "vault secrets tune" command`)
+
+	return res, nil
 }
 
 func (b *exoscaleBackend) pathLeaseWrite(
@@ -91,27 +101,38 @@ func (b *exoscaleBackend) pathLeaseWrite(
 	req *logical.Request,
 	data *framework.FieldData,
 ) (*logical.Response, error) {
-	ttl, hasTTL := data.GetOk("ttl")
-	maxTTL, hasMaxTTL := data.GetOk("max_ttl")
-	if !hasTTL || !hasMaxTTL {
-		return logical.ErrorResponse(`"ttl" and "max_ttl" must both be specified`), nil
-	}
-	if ttl.(int) == 0 || maxTTL.(int) == 0 {
-		return logical.ErrorResponse(`"ttl" and "max_ttl" value must be greater than 0`), nil
-	}
-
-	entry, err := logical.StorageEntryJSON(configLeaseStoragePath, &leaseConfig{
-		TTL:    time.Second * time.Duration(ttl.(int)),
-		MaxTTL: time.Second * time.Duration(maxTTL.(int)),
-	})
+	lc, err := getLeaseConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
+
+	if ttl, ok := data.GetOk("ttl"); ok {
+		lc.TTL = time.Duration(ttl.(int)) * time.Second
+	}
+	if maxTTL, ok := data.GetOk("max_ttl"); ok {
+		lc.MaxTTL = time.Duration(maxTTL.(int)) * time.Second
+	}
+
+	entry, err := logical.StorageEntryJSON(configLeaseStoragePath, lc)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := req.Storage.Put(ctx, entry); err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	res := &logical.Response{
+		Data: map[string]interface{}{
+			"ttl":     int64(lc.TTL.Seconds()),
+			"max_ttl": int64(lc.MaxTTL.Seconds()),
+		},
+	}
+
+	res.AddWarning(`This setting only applies to legacy IAM access key,
+new API keys should take advantage of the "vault secrets tune" command`)
+
+	return res, nil
 }
 
 func (b *exoscaleBackend) pathLeaseDelete(

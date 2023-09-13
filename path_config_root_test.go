@@ -7,21 +7,14 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-var (
+const (
 	testConfigAPIEnvironment = "testapi"
 	testConfigRootAPIKey     = "EXOabcdef0123456789abcdef01"
 	testConfigRootAPISecret  = "ABCDEFGHIJKLMNOPRQSTUVWXYZ0123456789abcdefg"
-	testConfigZone           = "ch-gva-2"
+	testConfigZone           = "de-fra-1"
 )
 
 func (ts *testSuite) TestPathConfigRootRead() {
-	ts.storeEntry(configRootStoragePath, backendConfig{
-		APIEnvironment: testConfigAPIEnvironment,
-		RootAPIKey:     testConfigRootAPIKey,
-		RootAPISecret:  testConfigRootAPISecret,
-		Zone:           testConfigZone,
-	})
-
 	res, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
 		Storage:   ts.storage,
 		Operation: logical.ReadOperation,
@@ -31,10 +24,13 @@ func (ts *testSuite) TestPathConfigRootRead() {
 		ts.FailNow("request failed", err)
 	}
 
-	ts.Require().Equal(testConfigAPIEnvironment, res.Data[configAPIEnvironment].(string))
-	ts.Require().Equal(testConfigRootAPIKey, res.Data[configRootAPIKey].(string))
-	ts.Require().Equal(testConfigRootAPISecret, res.Data[configRootAPISecret].(string))
-	ts.Require().Equal(testConfigZone, res.Data[configZone].(string))
+	ts.Require().Equal(map[string]interface{}{
+		"api_environment":     "api",
+		"root_api_key":        "EXO0000",
+		"root_api_secret":     "xxxxxxxx",
+		"api_key_name_prefix": "",
+		"zone":                "ch-gva-2",
+	}, res.Data)
 }
 
 func (ts *testSuite) TestPathConfigRootWrite() {
@@ -42,44 +38,49 @@ func (ts *testSuite) TestPathConfigRootWrite() {
 		name     string
 		data     map[string]interface{}
 		storage  logical.Storage
-		expected backendConfig
+		expected ExoscaleConfig
 		wantErr  error
 	}{
 		{
-			name: "missing API credentials",
-			data: map[string]interface{}{
-				configZone: testConfigZone,
-			},
+			name:    "missing API credentials",
+			data:    map[string]interface{}{},
 			wantErr: errMissingAPICredentials,
 		},
 		{
-			name: "missing zone",
+			name: "minimal",
 			data: map[string]interface{}{
 				configRootAPIKey:    testConfigRootAPIKey,
 				configRootAPISecret: testConfigRootAPISecret,
 			},
-			wantErr: errMissingZone,
-		},
-		{
-			name: "ok",
-			data: map[string]interface{}{
-				configAPIEnvironment: testConfigAPIEnvironment,
-				configRootAPIKey:     testConfigRootAPIKey,
-				configRootAPISecret:  testConfigRootAPISecret,
-				configZone:           testConfigZone,
-			},
-			expected: backendConfig{
-				APIEnvironment: testConfigAPIEnvironment,
+			expected: ExoscaleConfig{
+				APIEnvironment: "api",
 				RootAPIKey:     testConfigRootAPIKey,
 				RootAPISecret:  testConfigRootAPISecret,
-				Zone:           testConfigZone,
+				Zone:           "ch-gva-2",
+			},
+		},
+		{
+			name: "full",
+			data: map[string]interface{}{
+				configAPIEnvironment:   testConfigAPIEnvironment,
+				configRootAPIKey:       testConfigRootAPIKey,
+				configRootAPISecret:    testConfigRootAPISecret,
+				configAPIKeyNamePrefix: "toto",
+				configZone:             testConfigZone,
+			},
+			expected: ExoscaleConfig{
+				APIEnvironment:   testConfigAPIEnvironment,
+				RootAPIKey:       testConfigRootAPIKey,
+				RootAPISecret:    testConfigRootAPISecret,
+				Zone:             testConfigZone,
+				APIKeyNamePrefix: "toto",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		ts.T().Run(tt.name, func(t *testing.T) {
-			var actualBackendConfig backendConfig
+			var actualBackendConfig ExoscaleConfig
 			tt.storage = &logical.InmemStorage{}
 
 			_, err := ts.backend.HandleRequest(context.Background(), &logical.Request{
