@@ -1,5 +1,12 @@
 # Changelog
 
+
+## UNRELEASED
+
+### Improvements
+
+- automate release with Exoscale Tooling GPG key #19
+
 ## 0.3.0
 
 * Add option to make secret non-renewable
