@@ -1,12 +1,15 @@
 # Changelog
 
 
-## UNRELEASED
+## 0.4.0
+
+### Features
+
+- Add support for the new role based IAM
 
 ### Improvements
 
 - automate release with Exoscale Tooling GPG key #19
-- Add support for the new role based IAM
 
 ## 0.3.0
 
