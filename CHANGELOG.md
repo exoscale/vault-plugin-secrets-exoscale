@@ -6,6 +6,7 @@
 ### Improvements
 
 - automate release with Exoscale Tooling GPG key #19
+- Add support for the new role based IAM
 
 ## 0.3.0
 
