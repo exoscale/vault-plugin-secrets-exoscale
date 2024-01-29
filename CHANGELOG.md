@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+### Bug Fixes
+- Fix the version string to add the "v" prefix e.g v0.4.1 instead of 0.4.0 [#20](https://github.com/exoscale/vault-plugin-secrets-exoscale/pull/20)
 
 ## 0.4.0
 
