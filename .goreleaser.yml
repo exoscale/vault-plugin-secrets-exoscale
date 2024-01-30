@@ -8,7 +8,7 @@ builds:
     - -mod=vendor
     - -trimpath
   ldflags:
-    - -s -w -X {{.Env.GO_PKG}}/version.Version={{.Version}} -X {{.Env.GO_PKG}}/version.Commit={{.ShortCommit}}
+    - -s -w -X {{.Env.GO_PKG}}/version.Version=v{{.Version}} -X {{.Env.GO_PKG}}/version.Commit={{.ShortCommit}}
   goos:
     - darwin
     - linux

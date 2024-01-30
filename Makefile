@@ -2,11 +2,16 @@ PACKAGE := github.com/exoscale/vault-plugin-secrets-exoscale
 PROJECT_URL := https://$(PACKAGE)
 GO_MAIN_PKG_PATH := ./cmd/vault-plugin-secrets-exoscale
 
+
 include go.mk/init.mk
 
 GO_LD_FLAGS := -ldflags "-s -w -X $(PACKAGE)/version.Version=${VERSION} -X $(PACKAGE)/version.Commit=${GIT_REVISION}"
 
 include go.mk/public.mk
+
+ifeq ($(VERSION), dev)
+	VERSION = v0.0.0+dev
+endif
 
 EXTRA_ARGS := -parallel 3 -count=1 -failfast
 .PHONY: test-acc test-verbose test
