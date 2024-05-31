@@ -76,7 +76,7 @@ func (role *Role) fromFieldData(data *framework.FieldData) error {
 	v2FieldSet := (role.Operations != nil || role.Resources != nil || role.Tags != nil)
 	v3FieldSet := role.IAMRoleID != ""
 	if v2FieldSet && v3FieldSet {
-		return errors.New("iam-role cannot be used in conjunction with the deprecated fields: operations, resources or tags.")
+		return errors.New("iam-role cannot be used in conjunction with the deprecated fields: operations, resources or tags")
 	}
 
 	if v3FieldSet {
