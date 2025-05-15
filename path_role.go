@@ -21,7 +21,7 @@ type Role struct {
 	IAMRoleName string `json:"iam_role_name,omitempty"`
 
 	// Lease
-	Renewable   bool          `json:"renewable,omitempty"`
+	Renewable   bool          `json:"renewable"`
 	TTL         time.Duration `json:"ttl,omitempty"`
 	MaxTTL      time.Duration `json:"max_ttl,omitempty"`
 	LeaseConfig *leaseConfig  `json:"lease_config,omitempty"` // deprecated
