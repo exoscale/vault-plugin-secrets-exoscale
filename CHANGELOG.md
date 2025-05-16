@@ -2,9 +2,15 @@
 
 ## Unreleased
 
+## 0.4.2
+
+### Bug Fixes
+
+- Fix a serialization bug preventing from setting a role as non-renewable
+
 ### Improvements
 
-- go.mk: lint with staticcheck #22 
+- go.mk: lint with staticcheck #22
 
 ## 0.4.1
 
