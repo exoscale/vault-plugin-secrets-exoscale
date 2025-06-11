@@ -5,6 +5,8 @@
 ### Bug Fixes
 
 - Fix panic when CreateApiKeyWithResponse returns an error
+- IAMv3: cleanup secret if the api returns "API Key not in organization"
+- Improve logging and errors
 
 ## 0.4.2
 
