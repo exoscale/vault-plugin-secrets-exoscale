@@ -197,8 +197,11 @@ func (e *Exoscale) V3CreateAPIKey(ctx context.Context, roleName string, reqDispl
 		Name:   fmt.Sprintf("vault-%s%s-%s-%d", prefix, roleName, reqDisplayName, time.Now().UnixNano()),
 		RoleId: role.IAMRoleID,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create api key: %w", err)
+	}
 
-	return resp.JSON200, err
+	return resp.JSON200, nil
 }
 
 // V3DeleteAPIKey deletes a IAMv3 API Key
