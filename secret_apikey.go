@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -120,15 +121,26 @@ func (b *exoscaleBackend) secretAPIKeyRevoke(
 	var err error
 	if version == "v2" {
 		err = b.exo.V2RevokeAccessKey(ctx, key.(string))
+		if err != nil && strings.HasSuffix(err.Error(), ": resource not found") {
+			b.Logger().Warn("IAMv2 key deosn't exist anymore, cleaning up secret", "key", key, "lease_id", req.Secret.LeaseID)
+			return nil, nil
+		} else if err != nil {
+			b.Logger().Warn("Failed to revoke IAM key", "key", key, "lease_id", req.Secret.LeaseID, "err", err)
+			return nil, fmt.Errorf("unable to revoke the API key: %w", err)
+		}
 	} else {
 		err = b.exo.V3DeleteAPIKey(ctx, key.(string))
-	}
 
-	if err != nil && strings.HasSuffix(err.Error(), ": resource not found") {
-		b.Logger().Warn("IAM key deosn't exist anymore, cleaning up secret", "key", key, "lease_id", req.Secret.LeaseID)
-		return nil, nil
-	} else if err != nil {
-		return nil, fmt.Errorf("unable to revoke the API key: %w", err)
+		uerr := &url.Error{}
+		if errors.As(err, &uerr) && uerr.Err.Error() == "invalid request: API Key not in organization" {
+			b.Logger().Warn("IAMv3 key deosn't exist anymore, cleaning up secret", "key", key, "lease_id", req.Secret.LeaseID)
+			return nil, nil
+		}
+
+		if err != nil {
+			b.Logger().Warn("Failed to revoke IAM key", "key", key, "lease_id", req.Secret.LeaseID, "err", err)
+			return nil, fmt.Errorf("unable to revoke the API key: %w", err)
+		}
 	}
 
 	b.Logger().Info("IAM key revoked", "key", key.(string), "lease_id", req.Secret.LeaseID)

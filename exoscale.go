@@ -215,13 +215,11 @@ func (e *Exoscale) V3DeleteAPIKey(ctx context.Context, key string) error {
 
 	resp, err := e.DeleteApiKeyWithResponse(exoapi.WithEndpoint(ctx, e.reqEndpoint), key)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete api key %q: %w", key, err)
 	}
 	if *resp.JSON200.State != oapi.OperationStateSuccess { // TODO(antoine): check if the state is "pending" and poll
 		return errors.New(*resp.JSON200.Message)
 	}
-
-	fmt.Println(*resp.JSON200.State)
 
 	return nil
 }
@@ -246,7 +244,7 @@ func (e *Exoscale) V3GetRole(ctx context.Context, role string) (*oapi.IamRole, e
 
 	allroles, err := e.ListIamRolesWithResponse(exoapi.WithEndpoint(ctx, e.reqEndpoint))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list roles: %w", err)
 	}
 
 	if allroles.JSON200 != nil && allroles.JSON200.IamRoles != nil {
