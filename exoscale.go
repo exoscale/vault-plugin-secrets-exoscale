@@ -198,7 +198,7 @@ func (e *Exoscale) V3CreateAPIKey(ctx context.Context, roleName string, reqDispl
 		RoleId: role.IAMRoleID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create api key: %w", err)
+		return nil, fmt.Errorf("failed to create api key: %w", err)
 	}
 
 	return resp.JSON200, nil
