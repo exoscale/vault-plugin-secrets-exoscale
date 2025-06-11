@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.3
+
 ### Bug Fixes
 
 - Fix panic when CreateApiKeyWithResponse returns an error
