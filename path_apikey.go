@@ -110,7 +110,6 @@ func (b *exoscaleBackend) createAPIKey(
 		if err != nil {
 			b.Logger().Info("Failed to create IAMv3 api key",
 				"role", roleName,
-				"iam_role_name", roleName,
 				"iam_name", req.DisplayName,
 				"err", err)
 			return nil, err
